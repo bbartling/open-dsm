@@ -5,7 +5,7 @@ LOAD SHED ADJ SETPOINT
 """
 
 
-setpoint_adj = 3.0
+setpoint_adj = 0.03
 
 nested_group_map = {
             'group_l1n' : {
