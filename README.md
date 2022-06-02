@@ -2,8 +2,8 @@
 * load shed BACnet concept idea for simple demand response event that could be around 1 - 3 hour duration around peak load times when electric grid is stressed.
 
 ## mapping.py
-* HVAC setpoint adjust
-* HVAC system config file of BACnet addresses
+* HVAC setpoint adjust param float or int value
+* HVAC system config file of BACnet addresses currently split between 4 thermal groups for north and south first and second floors.
 
 ## helpers.py
 * functions with predefined for JCI and Trane VAV boxes in HVAC system zone temperature setpoint "points." BACnet write functions override HVAC setpoints on BACnet priority 10. Release functions release BACnet priority 10.
