@@ -20,8 +20,9 @@ nested_group_map = {
             },
             'group_l1s' : {
             'VMA-1-6': '8',
-            'VMA-1-8': '6',
-            'VMA-1-9': '10',
+            'VMA-1-8': '11002', # formerly JCI #8
+            'VAV 1-9': '11007',
+            'VMA-1-7': '10', # changed name to VAV 7
             'VMA-1-12': '19',
             'VMA-1-13': '20',
             'VMA-1-14': '37',
@@ -35,7 +36,7 @@ nested_group_map = {
             'VMA-2-4': '29',
             'VAV-2-5': '12028',
             'VMA-2-6': '27',
-            #'VMA-2-12': '26',
+            'VMA-2-12': '12026', # formerly JCI #26
             'VMA-2-7': '30'
             },
             'group_l2s' : {
@@ -43,8 +44,9 @@ nested_group_map = {
             'VAV-2-9': '12035',
             'VMA-2-10': '36',
             'VMA-2-11': '25',
-            'VMA-2-13': '23',
-            'VMA-2-14': '24'
+            'VMA-2-13': '12023',  # formerly JCI #23
+            'VMA-2-14': '24',
+            'VAV 2-12': '12026',
             }
         }
 

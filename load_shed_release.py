@@ -11,8 +11,10 @@ setpoint_adj = mapping.setpoint_adj
 
 for group,vavs in devices.items():
     for vav,address in vavs.items():
-        f.release_override(address)
-
+        if int(address) > 10000:
+            f.release_override_trane(address)
+        else:
+            f.release_override_jci(address)
 
 time.sleep(5)
 f.kill_switch()

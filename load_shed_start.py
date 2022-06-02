@@ -20,14 +20,13 @@ for group,vavs in devices.items():
         # create new dict keys,values
         read_results[address] = read_result
 
-
 # Compile BACnet Read Results in new dict
 print("read_results ",read_results)
 
 
 # Modify current setpoints with adj values
 for address,setpoint in read_results.items():
-    if isinstance(setpoint, int) or isinstance(setpoint, float):
+    if not isinstance(setpoint, str): # string is error
         if int(address) > 10000:
             f.write_trane_zone_setpoints(address,
                                          setpoint+setpoint_adj)
