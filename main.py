@@ -40,9 +40,9 @@ class Program:
                 sensor = info["points"]["zone_sensor"]
 
                 read_result = await BacNetWorker.do_things(
-                        "read",
-                        dev_address,
-                        sensor
+                        action = "read",
+                        dev_address = dev_address,
+                        point_info = sensor
                         )
 
                 print(f"{device} zone sensor BACnet read is: {read_result}")
@@ -61,11 +61,11 @@ class Program:
                 write_value = self.zone_sensor_vals[device] + SETPOINT_ADJ
 
                 write_result = await BacNetWorker.do_things(
-                        "write",
-                        dev_address,
-                        setpoint,
+                        action = "write",
+                        dev_address = dev_address,
+                        point_info = setpoint,
                         value = write_value,
-                        PRIORITY = PRIORITY
+                        priority = PRIORITY
                         )
 
                 print(f"{device} zone setpoint BACnet write is: {write_result} with {write_value}")
@@ -83,9 +83,9 @@ class Program:
                 sensor = info["points"]["zone_sensor"]
 
                 read_result = await BacNetWorker.do_things(
-                        "read",
-                        dev_address,
-                        sensor
+                        action = "read",
+                        dev_address = dev_address,
+                        point_info = sensor
                         )
 
                 print(f"{device} zone sensor BACnet read is: {read_result}")
@@ -126,19 +126,19 @@ class Program:
                             setpoint = info["points"]["zone_setpoint"]
 
                             if device == zone:
-                                print("found address of {dev_address} for {zone}")
+                                print(f"found address of {dev_address} for {zone}")
                                 print("lets release it back the BAS!")
                             
 
                                 release_result = await BacNetWorker.do_things(
-                                        "release",
-                                        dev_address,
-                                        setpoint,
-                                        PRIORITY = PRIORITY
+                                        action = "release",
+                                        dev_address = dev_address,
+                                        point_info = setpoint,
+                                        priority = PRIORITY
                                         )
 
                                 print(f"{zone} release status is: {release_result}")
-
+                                self.zones_overridden.remove(zone)
 
 
     async def check_time(self):
@@ -153,17 +153,33 @@ class Program:
 
 
     async def on_end(self):
+
         print("On End Releasing All Overrides!")
-        
+
+        for group,devices in HVAC.items():
+            for device,info in devices.items():
+                dev_address = info["address"]
+
+                # setpoint is the original point overridden
+                setpoint = info["points"]["zone_setpoint"]
+
+                
+                # release EVERYTHING...
+                release_result = await BacNetWorker.do_things(
+                        action = "release",
+                        dev_address = dev_address,
+                        point_info = setpoint,
+                        priority = PRIORITY
+                        )
+
+        print("Release All Success!")
+
         if self.bacnet_service_started == True:
             kill_status = await BacNetWorker.do_things(
-                        "kill_switch"
+                        action = "kill_switch"
                         )
 
             print("BACnet service stopped: ",kill_status)
-
-
-
 
 
 
@@ -177,11 +193,13 @@ class Program:
             readings = asyncio.ensure_future(self.get_sensor_readings())
             analysis = asyncio.ensure_future(self.evauluate_data())
             checker = asyncio.ensure_future(self.check_time())
-            
+
+
             if not self.event_has_expired:
                 await readings   
                 await analysis           
                 await checker
+                
                 
             else:
                 # close other tasks before final shutdown
@@ -189,7 +207,7 @@ class Program:
                 analysis.cancel()
                 checker.cancel()
                 self.cancelled_success = True
-                print("cancelled hit!")
+                print("Asyncio Task's All Cancelled Success!")
 
 
         # script ends, do only once self.on_end() when even is done
@@ -203,9 +221,5 @@ async def main():
 
 
 
-
-asyncio.run(main())
-
-
-
-
+if __name__ == "__main__":
+    asyncio.run(main())

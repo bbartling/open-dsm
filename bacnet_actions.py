@@ -8,16 +8,19 @@ import time
 bacnet = BAC0.lite()
 
 
-# Create your PydanticView and add annotations.
+
 class BacNetWorker():
-    async def do_things(action,address,object_type_instance, **kwargs):
+    async def do_things(**kwargs):
+
+        action = kwargs.get('action', None)
+        dev_address = kwargs.get('dev_address', None)
+        object_type_instance = kwargs.get('point_info', None)
         value = kwargs.get('value', None)
         priority = kwargs.get('priority', None)
 
-
         if action == "read":
             try:
-                read_vals = f'{address} {object_type_instance} presentValue'
+                read_vals = f'{dev_address} {object_type_instance} presentValue'
                 print("Excecuting BACnet read statement:", read_vals)
                 read_result = bacnet.read(read_vals)
                 if isinstance(read_result, str):
@@ -31,7 +34,7 @@ class BacNetWorker():
 
         elif action == "write":
             try:
-                write_vals = f'{address} {object_type_instance} presentValue {value} - {priority}'
+                write_vals = f'{dev_address} {object_type_instance} presentValue {value} - {priority}'
                 bacnet.write(write_vals)
                 return "success"          
             except Exception as error:
@@ -40,7 +43,7 @@ class BacNetWorker():
 
         elif action == "release":
             try:    
-                release_vals = f'{address} {object_type_instance} presentValue null - {priority}'
+                release_vals = f'{dev_address} {object_type_instance} presentValue null - {priority}'
                 print("Excecuting BACnet release statement:", release_vals)
                 bacnet.write(release_vals)
                 return "success" 
