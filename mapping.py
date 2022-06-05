@@ -3,52 +3,182 @@ CONFIG FILE OF BACnet NETWORK AND
 LOAD SHED ADJ SETPOINT
 
 """
+# event duration in minutes
+event_duration = 10
+
+# adjust zone setpoints
+setpoint_adj = 3.0
+
+# applying overrides on BACnet priority
+write_priority = 9
+
+# if a zones rises above this temp
+# release this zone even if the event isnt over
+zone_hi_temp_release_setpoint = 75.0
 
 
-setpoint_adj = 0.03
+nested_group_map = {"floor1_north" : {"VMA-1-1": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogValue 806",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-2": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-3": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 2",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-4": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-5": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 2",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-7": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-10": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-11": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},      
+                    },
 
-nested_group_map = {
-            'group_l1n' : {
-            'VMA-1-1': '14',
-            'VMA-1-2': '13',
-            'VMA-1-3': '15',
-            'VMA-1-4': '11',
-            'VMA-1-5': '9',
-            'VMA-1-7': '7',
-            'VMA-1-10': '21',
-            'VMA-1-11': '16'
-            },
-            'group_l1s' : {
-            'VMA-1-6': '8',
-            'VMA-1-8': '11002', # formerly JCI #8
-            'VAV 1-9': '11007',
-            'VMA-1-7': '10', # changed name to VAV 7
-            'VMA-1-12': '19',
-            'VMA-1-13': '20',
-            'VMA-1-14': '37',
-            'VMA-1-15': '38',
-            'VMA-1-16': '39'
-            },
-            'group_l2n' : {
-            'VAV-2-1': '12032',
-            'VAV-2-2': '12033',
-            'VMA-2-3': '31',
-            'VMA-2-4': '29',
-            'VAV-2-5': '12028',
-            'VMA-2-6': '27',
-            'VMA-2-12': '12026', # formerly JCI #26
-            'VMA-2-7': '30'
-            },
-            'group_l2s' : {
-            'VMA-2-8': '34',
-            'VAV-2-9': '12035',
-            'VMA-2-10': '36',
-            'VMA-2-11': '25',
-            'VMA-2-13': '12023',  # formerly JCI #23
-            'VMA-2-14': '24',
-            'VAV 2-12': '12026',
-            }
-        }
+                    "floor1_south" : {"VMA-1-6": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogValue 806",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-8": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-9": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 2",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-7": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-12": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 2",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-13": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-14": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-15": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-1-16": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}}, 
+                    },
 
+                    "floor2_north" : {"VMA-2-1": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogValue 806",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-2": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-3": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 2",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-4": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-5": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 2",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-6": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-12": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-7": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
 
+                },
 
+                    "floor2_south" : {"VMA-2-8": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogValue 806",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-9": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-10": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 2",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-11": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-13": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 2",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                                        "VMA-2-14": {
+                                        "address" :  "12345:2", 
+                                        "points": {"zone_sensor" : "analogInput 3",
+                                                   "zone_setpoint" : "analogValue 302",
+                                                   "reheat_coil" : "analogValue 301"}},
+                },
+
+}

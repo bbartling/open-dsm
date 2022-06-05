@@ -13,7 +13,7 @@ class Helpers():
 
     # JCI BACNET WRITE ON PRIORITY 10
     # <address> <pointType> <pointAdress> presentValue <value> - <bacnetPriority>
-    def write_jci_zone_setpoints(device,setpoint):
+    def write(device,setpoint):
         try:
             jci_write = f'{device} anlogValue 1103 presentValue {setpoint} - 10'
             bacnet.write(jci_write)
