@@ -4,7 +4,7 @@ LOAD SHED ADJ SETPOINT
 
 """
 # event duration in minutes
-event_duration = 6
+event_duration = 2
 
 # adjust zone setpoints
 setpoint_adj = 3.0
