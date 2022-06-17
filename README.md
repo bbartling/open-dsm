@@ -1,7 +1,7 @@
 # GEB Algorithm Deployment with BAC0
 
-* for electrical load shift, load shed, and continous load management
-* See DOE Source Info folder for PDF
+* Scripting to execute electrical load shift, load shed, and continous load management on building loads
+* See DOE-Source-Info folder
 * BACnet App with [BAC0](https://bac0.readthedocs.io/en/latest/#bac0-build-status-coverage-docs)
 
 
