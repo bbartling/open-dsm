@@ -5,7 +5,7 @@
 * BACnet App with [BAC0](https://bac0.readthedocs.io/en/latest/#bac0-build-status-coverage-docs)
 
 
-![gebpic](DOE-Sources-Info/snip.jpg)
+![gebpic](DOE-Sources-Info/snip.JPG)
 
 
 ## More testing and development soon!
