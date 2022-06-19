@@ -1,5 +1,7 @@
 # load_shed_concept
-* load shed BACnet concept idea for simple demand response event that could be around 1 - 3 hour duration around peak load times when electric grid is stressed.
+* load shed BACnet concept idea for simple demand response event that could be around 1 - 3 hour duration around peak load times when electric grid is stressed. This sub folder is for a multi-zone variable air volume (VAV) air handling units (AHU) to shed load based on global zone temperature setpoint adjust ([GTA](https://www.osti.gov/pages/biblio/1843540)).
+
+## NEEDS TESTING
 
 ## mapping.py
 * demand response event duration in minutes:
