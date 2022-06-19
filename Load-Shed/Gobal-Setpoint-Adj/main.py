@@ -225,12 +225,12 @@ class Program:
 
         while not self.tasks_cancelled_success:
 
-            readings = asyncio.ensure_future(self.get_sensor_readings())
             analysis = asyncio.ensure_future(self.evauluate_data())
+            readings = asyncio.ensure_future(self.get_sensor_readings())
             checker = asyncio.ensure_future(self.check_time())
 
-            await readings # run every 60 seconds
-            await analysis # run every 120 seconds     
+            await analysis # run every 120 seconds  
+            await readings # run every 60 seconds   
             await checker  # run every 5 seconds
                 
                 
