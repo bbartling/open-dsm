@@ -28,7 +28,6 @@ class Program:
         self.program_start = dt.now()
         self.event_has_expired = False
         self.tasks_cancelled_success = False
-        self.bacnet_service_started = False
 
         # store zone sensor readings
         # used for monitoring 
@@ -36,41 +35,7 @@ class Program:
         self.clg_compressor_overridden = []
         self.num_of_clg_stages = 0
         self.num_of_clg_stages_active = 0
-        
-
-    async def on_start(self):
-
-        print("On Start Event Start! Applying Overrides!!!")
-        logging.info("On Start Event Start! Applying Overrides!!!")
-
-        for devices in HVAC.values():
-            for info in devices.values():
-
-                dev_address = info["address"]
-                clg_output = info["points"]
-
-                print("The number of clg stages is: ", len(clg_output))
-                self.num_of_clg_stages = len(clg_output)
-
-                for clg_stage,clg_point_address in clg_output.items():
-
-                    read_result = await BacNetWorker.do_things(
-                            action = "read",
-                            dev_address = dev_address,
-                            point_info = clg_point_address
-                            )
-
-                    print(f"{clg_stage} is: {read_result}")
-                    logging.info(f"{clg_stage} is: {read_result}")
-
-                    # store zone sensor readings
-                    self.clg_compressor_vals[clg_stage] = read_result
-
-
-        self.bacnet_service_started = True
-        print(self.clg_compressor_vals)
-        logging.info(f"{self.clg_compressor_vals}")
-
+        self.percent_clg_active = 0.0
 
 
 
@@ -97,9 +62,29 @@ class Program:
                     # store zone sensor readings
                     self.clg_compressor_vals[clg_stage] = read_result
 
+        temporary_counter = 0
+        # find out how many stages of clg are running
+        for clg_stage,status in self.clg_compressor_vals.items():
+            print("clg_stage,status is:",clg_stage,status)
+            if status == 'active':
+                temporary_counter += 1
 
-        print(self.clg_compressor_vals)
-        logging.info(f"{self.clg_compressor_vals}")
+        # if more or less stages of clg are counted than the
+        # last run, update the method object count
+        if self.num_of_clg_stages_active != temporary_counter:
+            self.num_of_clg_stages_active = temporary_counter
+
+        print(f"Compressor status' is: ",self.clg_compressor_vals)
+        logging.info(f"Compressor status' is: ",self.clg_compressor_vals)
+
+        print(f"Num of stages running is: ",self.num_of_clg_stages_active)
+        logging.info(f"Num of stages running is: {self.num_of_clg_stages_active}")
+
+        if self.num_of_clg_stages_active != 0:
+            self.percent_clg_active = self.num_of_clg_stages_active / self.num_of_clg_stages
+            print(f"Percent clg active is: ",self.percent_clg_active)
+            logging.info(f"Percent clg active  is: {self.percent_clg_active}")   
+
 
         # run every minute
         await asyncio.sleep(60)
@@ -119,8 +104,9 @@ class Program:
             print("Checking compressor statuses...")
             logging.info("Checking compressor statuses...")
 
-            
-            print("self.clg_compressor_vals is: ",self.clg_compressor_vals)
+            print("self.num_of_clg_stages_active is: ",self.num_of_clg_stages_active)
+            logging.info(f"self.num_of_clg_stages_active is: {self.num_of_clg_stages_active}")
+
 
             '''
             •	Check RTU compressor 1-4 status once every 60 seconds
@@ -140,11 +126,23 @@ class Program:
 
             '''
 
-            for clg_stage,status in self.clg_compressor_vals.items():
-                print("clg_stage,status is:",clg_stage,status)
-                self.num_of_clg_stages_active += 1
+            if self.num_of_clg_stages_active == 0:
+                print("No compressors are running, passing....")
+                logging.info("No compressors are running, passing....")
 
+            # stage 1, 2, 3 are ON and 4 is OFF
+            #elif self.num_of_clg_stages_active == self.num_of_clg_stages - 1:
+            elif self.num_of_clg_stages_active == 3:
+                print("3 stages of cooling are running, overriding stage 3 and 4 OFF....")
+                logging.info("3 stages of cooling are running, overriding stage 3 and 4 OFF....")            
 
+            elif self.num_of_clg_stages_active == 4:
+                print("4 stages of cooling are running, overriding stage ONLY stage 4 OFF....")
+                logging.info("4 stages of cooling are running, overriding stage ONLY stage 4 OFF....")   
+
+            else:
+                print("Not enough cooling running to override OFF")
+                logging.info("Not enough cooling running to override OFF")                  
 
         # run data analysis every 3 minutes
         await asyncio.sleep(120)
@@ -192,31 +190,28 @@ class Program:
         print("Release All Success!")
         logging.info("Release All Success!")
 
-        if self.bacnet_service_started == True:
-            kill_status = await BacNetWorker.do_things(
-                        action = "kill_switch"
-                        )
+        kill_status = await BacNetWorker.do_things(
+                    action = "kill_switch"
+                    )
 
-            print("BACnet service stopped: ",kill_status)
-            logging.info(f"BACnet service stopped: {kill_status}")
+        print("BACnet service stopped: ",kill_status)
+        logging.info(f"BACnet service stopped: {kill_status}")
 
 
 
     async def main(self):
-        # script starts, do only once self.on_start()
-        await self.on_start()
+
         print("On Start Done!")
         logging.info("On Start Done!")
 
         while not self.tasks_cancelled_success:
 
-
-            analysis = asyncio.ensure_future(self.evauluate_data())
             readings = asyncio.ensure_future(self.get_compresor_readings())
+            analysis = asyncio.ensure_future(self.evauluate_data())
             checker = asyncio.ensure_future(self.check_time())
 
-            await analysis # run every 120 seconds  
             await readings # run every 60 seconds   
+            await analysis # run every 120 seconds  
             await checker  # run every 5 seconds
                 
                 
