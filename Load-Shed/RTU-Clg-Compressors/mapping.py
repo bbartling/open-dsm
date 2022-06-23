@@ -5,10 +5,8 @@ This Script Only Adjusts Cooling Compressos
 
 """
 # event duration in minutes
-event_duration = 30
+event_duration = 2
 
-# number of RTU cooling stages
-num_of_cooling_stages = 4
 
 # applying overrides on BACnet priority
 write_priority = 8

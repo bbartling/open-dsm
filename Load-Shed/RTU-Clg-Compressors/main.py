@@ -17,7 +17,6 @@ logging.basicConfig(
 
 # import config file of device address & setpoint adj
 HVAC = mapping.nested_group_map
-NUM_OF_CLG_STAGES = mapping.num_of_cooling_stages
 PRIORITY = mapping.write_priority
 EVENT_DURATION_MINUTES = mapping.event_duration
 
@@ -35,7 +34,8 @@ class Program:
         # used for monitoring 
         self.clg_compressor_vals = {}
         self.clg_compressor_overridden = []
-
+        self.num_of_clg_stages = 0
+        self.num_of_clg_stages_active = 0
         
 
     async def on_start(self):
@@ -48,6 +48,9 @@ class Program:
 
                 dev_address = info["address"]
                 clg_output = info["points"]
+
+                print("The number of clg stages is: ", len(clg_output))
+                self.num_of_clg_stages = len(clg_output)
 
                 for clg_stage,clg_point_address in clg_output.items():
 
@@ -71,7 +74,7 @@ class Program:
 
 
 
-    async def get_sensor_readings(self):
+    async def get_compresor_readings(self):
         print("Getting Cooling Compressor Readings!!!")
 
         for devices in HVAC.values():
@@ -103,53 +106,45 @@ class Program:
 
  
     async def evauluate_data(self):
-        print("Evaluating the data!!!")
-        logging.info(f"Overridden zones are {self.zones_overridden}") 
-        print(f"Overridden zones are {self.zones_overridden}") 
-        logging.info(f"Overridden zones are {self.zones_overridden}") 
 
-        if not self.zones_overridden: # list is empty
+        print("Evaluating the compressor data!!!")
+        print(f"Overridden zones are {self.clg_compressor_overridden}") 
+        logging.info(f"Overridden zones are {self.clg_compressor_overridden}") 
+
+        if not self.clg_compressor_overridden: # list is empty
             print("All zones have been released before event ended")
             logging.info("All zones have been released before event ended")
 
         else: 
-            print("Checking for hi temps!!!")
-            logging.info("Checking for hi temps!!!")
+            print("Checking compressor statuses...")
+            logging.info("Checking compressor statuses...")
 
-            for zone,temp in self.clg_compressor_vals.items():
-                print(zone,temp)
-                if (
-                    temp >= HI_TEMP_SETPOINT
-                    and zone in self.zones_overridden
-                ):
-                    print(f"Zone {zone} could be released!")
-                    logging.info(f"Zone {zone} could be released!")
+            
+            print("self.clg_compressor_vals is: ",self.clg_compressor_vals)
 
-                    # if True lookup BACnet address
-                    for group,devices in HVAC.items():
-                        for device,info in devices.items():
-                            dev_address = info["address"]
+            '''
+            •	Check RTU compressor 1-4 status once every 60 seconds
+                o	If ALL the “Override Flag” variable on Comp #1 to #4 is OFF (or 0):
+                    	IF only Comp#1 ON OR only both Comp#1 And Comp#2 ON: 
+                        •	PASS (do nothing)
+                    	Eles if Comp#1, #2, and #3 ON AND Comp#4 OFF:
+                        •	Override Comp#3 AND #4 OFF
+                        •	Set “Override Flag” on Comp #3 and #4 ON (so at the end of the event remember to release both Compressor overrides)
+                        •	Wait to the end of the event to release both Comp #3 and #4 overrides
+                    	Else if Comp#1, #2, #3 and #4 all are ON:
+                        •	Override Comp#4 OFF
+                        •	Set “Override Flag” on #4 ON (so at the end of the event remember to release it)
+                        •	Wait to the end of the event to release Comp #4 override
+                o	Else
+                    	Do nothing
 
-                            # setpoint is the original point overridden
-                            setpoint = info["points"]["zone_setpoint"]
+            '''
 
-                            if device == zone:
-                                print(f"found address of {dev_address} for {zone}")
-                                logging.info("lets release it back the BAS!")
-                                print("lets release it back the BAS!")
-                                logging.info("lets release it back the BAS!")
-                            
+            for clg_stage,status in self.clg_compressor_vals.items():
+                print("clg_stage,status is:",clg_stage,status)
+                self.num_of_clg_stages_active += 1
 
-                                release_result = await BacNetWorker.do_things(
-                                        action = "release",
-                                        dev_address = dev_address,
-                                        point_info = setpoint,
-                                        priority = PRIORITY
-                                        )
 
-                                print(f"{zone} release status is: {release_result}")
-                                logging.info(f"{zone} release status is: {release_result}")
-                                self.zones_overridden.remove(zone)
 
         # run data analysis every 3 minutes
         await asyncio.sleep(120)
@@ -163,7 +158,7 @@ class Program:
             print("Event is DONE!!!, elapsed time: ",elapsed_time)
             logging.info(f"Event is DONE!!!, elapsed time: {elapsed_time}")
         else:
-            print("Event is not done!, elapsed time: ",elapsed_time)
+            print("Event is STILL RUNNING!!!, elapsed time: ",elapsed_time)
             logging.info(f"Event is not done!, elapsed time: {elapsed_time}")
 
         await asyncio.sleep(5)
@@ -175,21 +170,24 @@ class Program:
         print("On End Releasing All Overrides!")
         logging.info("On End Releasing All Overrides!")
 
-        for group,devices in HVAC.items():
-            for device,info in devices.items():
+        for devices in HVAC.values():
+            for info in devices.values():
+
                 dev_address = info["address"]
+                clg_output = info["points"]
 
-                # setpoint is the original point overridden
-                setpoint = info["points"]["zone_setpoint"]
+                for clg_stage,clg_point_address in clg_output.items():
 
+                    print(f"Releasing {clg_stage} on {clg_point_address}")
+                    logging.info(f"Releasing {clg_stage} on {clg_point_address}")
                 
-                # release EVERYTHING...
-                release_result = await BacNetWorker.do_things(
-                        action = "release",
-                        dev_address = dev_address,
-                        point_info = setpoint,
-                        priority = PRIORITY
-                        )
+                    # release EVERYTHING...
+                    release_result = await BacNetWorker.do_things(
+                            action = "release",
+                            dev_address = dev_address,
+                            point_info = clg_point_address,
+                            priority = PRIORITY
+                            )
 
         print("Release All Success!")
         logging.info("Release All Success!")
@@ -214,7 +212,7 @@ class Program:
 
 
             analysis = asyncio.ensure_future(self.evauluate_data())
-            readings = asyncio.ensure_future(self.get_sensor_readings())
+            readings = asyncio.ensure_future(self.get_compresor_readings())
             checker = asyncio.ensure_future(self.check_time())
 
             await analysis # run every 120 seconds  

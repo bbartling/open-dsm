@@ -164,8 +164,8 @@ class Program:
                                 logging.info(f"{zone} release status is: {release_result}")
                                 self.zones_overridden.remove(zone)
 
-        # run data analysis every 3 minutes
-        await asyncio.sleep(120)
+        # run data analysis every 5 minutes
+        await asyncio.sleep(300)
 
 
 
@@ -176,7 +176,7 @@ class Program:
             print("Event is DONE!!!, elapsed time: ",elapsed_time)
             logging.info(f"Event is DONE!!!, elapsed time: {elapsed_time}")
         else:
-            print("Event is not done!, elapsed time: ",elapsed_time)
+            print("Event is STILL RUNNING!!!, elapsed time: ",elapsed_time)
             logging.info(f"Event is not done!, elapsed time: {elapsed_time}")
 
         await asyncio.sleep(5)
@@ -229,7 +229,7 @@ class Program:
             readings = asyncio.ensure_future(self.get_sensor_readings())
             checker = asyncio.ensure_future(self.check_time())
 
-            await analysis # run every 120 seconds  
+            await analysis # run every 300 seconds  
             await readings # run every 60 seconds   
             await checker  # run every 5 seconds
                 
