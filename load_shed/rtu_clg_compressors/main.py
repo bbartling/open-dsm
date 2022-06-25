@@ -1,14 +1,11 @@
-# https://gist.github.com/bbartling/2c28d7a3087b9c7f9b8bb9d30c30e773
-
 import asyncio
 from datetime import datetime as dt
 from datetime import timedelta as td
 
 import mapping
-from bacnet_actions import BacNetWorker
 import logging
 
-
+from bacnet_actions import BacNetWorker
 
 logging.basicConfig(
         filename="event.log",
@@ -37,6 +34,16 @@ class Program:
         self.num_of_clg_stages_active = 0
         self.percent_clg_active = 0.0
 
+
+
+    async def on_start(self):
+
+        # calculate the cooling stages
+        for device_info in HVAC["air_side_systems"].values():
+             self.num_of_clg_stages = len(device_info['points'])
+
+        print(f"The number of cooling stages is: {self.num_of_clg_stages}")
+        logging.info(f"The number of cooling stages is: {self.num_of_clg_stages}")
 
 
     async def get_compresor_readings(self):
@@ -96,6 +103,10 @@ class Program:
         print(f"Overridden zones are {self.clg_compressor_overridden}") 
         logging.info(f"Overridden zones are {self.clg_compressor_overridden}") 
 
+        print(f"Percent clg active is: ",self.percent_clg_active)
+        logging.info(f"Percent clg active  is: {self.percent_clg_active}")   
+
+
         if not self.clg_compressor_overridden: # list is empty
             print("All zones have been released before event ended")
             logging.info("All zones have been released before event ended")
@@ -130,11 +141,30 @@ class Program:
                 print("No compressors are running, passing....")
                 logging.info("No compressors are running, passing....")
 
+
             # stage 1, 2, 3 are ON and 4 is OFF
             #elif self.num_of_clg_stages_active == self.num_of_clg_stages - 1:
             elif self.num_of_clg_stages_active == 3:
                 print("3 stages of cooling are running, overriding stage 3 and 4 OFF....")
                 logging.info("3 stages of cooling are running, overriding stage 3 and 4 OFF....")            
+
+
+
+
+
+
+
+
+
+                # release EVERYTHING...
+                write_result = await BacNetWorker.do_things(
+                        action = "write",
+                        dev_address = dev_address,
+                        point_info = clg_point_address,
+                        priority = PRIORITY
+                        )
+
+
 
             elif self.num_of_clg_stages_active == 4:
                 print("4 stages of cooling are running, overriding stage ONLY stage 4 OFF....")
@@ -187,8 +217,9 @@ class Program:
                             priority = PRIORITY
                             )
 
-        print("Release All Success!")
-        logging.info("Release All Success!")
+
+        print(f"Release All Status: {release_result}")
+        logging.info(f"Release All Status: {release_result}")
 
         kill_status = await BacNetWorker.do_things(
                     action = "kill_switch"
@@ -201,8 +232,12 @@ class Program:
 
     async def main(self):
 
+
+        await self.on_start()
+
         print("On Start Done!")
         logging.info("On Start Done!")
+
 
         while not self.tasks_cancelled_success:
 

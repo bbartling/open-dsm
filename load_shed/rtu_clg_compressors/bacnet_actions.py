@@ -7,7 +7,7 @@ import time
 #bacnet = BAC0.lite(IP=STATIC_BACNET_IP)
 bacnet = BAC0.lite()
 
-
+time.sleep(5)
 
 class BacNetWorker():
     async def do_things(**kwargs):
