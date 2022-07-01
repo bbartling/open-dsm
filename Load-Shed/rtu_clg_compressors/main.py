@@ -1,257 +1,174 @@
 import aiohttp
 import asyncio
-import time
-
-from datetime import datetime as dt
-from datetime import timedelta as td
-
-import mapping
-import logging
-
-import requests
-
-logging.basicConfig(
-        filename="event.log",
-        level=logging.INFO)
+from datetime import datetime, timezone, timedelta
+import aiocron
 
 
-# import config file of device address & setpoint adj
-MY_RTU_READ = mapping.my_rtu_read
-MY_RTU_WRITE = mapping.my_rtu_write
-PRIORITY = mapping.write_priority
-EVENT_DURATION_MINUTES = mapping.event_duration
+
+# replace with real open ADR event when it slides in
+# use for testing purposes
+dummy_event = {
+	"active_period": {
+		"dstart": datetime.now(timezone.utc),
+		"duration": 120,
+		"notification": "null",
+		"ramp_up": "null",
+		"recovery": "null",
+		"tolerance": {
+			"tolerate": {
+				"startafter": "null"
+			}
+		}
+	},
+	"event_signals": [
+		{
+			"current_value": 2.0,
+			"intervals": [
+				{
+                "duration": timedelta(minutes=5),
+                                    #"dtstart": datetime.now(timezone.utc)+timedelta(minutes=5),
+                                    #"dtstart": datetime(2022, 6, 6, 14, 30, 0, 0, tzinfo=timezone.utc),
+                                    "dtstart": datetime.now(timezone.utc) + timedelta(seconds=30),
+                "signal_payload": 1.0,
+                "uid": 0
+				}
+			],
+			"signal_id": "SIG_01",
+			"signal_name": "SIMPLE",
+			"signal_type": "level"
+		}
+	],
+	"response_required": "always",
+	"target_by_type": {
+		"ven_id": [
+			"slipstream-ven4"
+		]
+	},
+	"targets": [
+		{
+			"ven_id": "slipstream-ven4"
+		}
+	]
+}
 
 
-BACNET_READ_MULT_URL = 'http://localhost:5000/bacnet/read/multiple'
 
 
-def read_compressors():
-
-    x = requests.get(BACNET_READ_MULT_URL,json=MY_RTU_READ)
-    status = x.status_code
-    return x.json()
-
-'''
-async def read_compressors():
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(BACNET_READ_MULT_URL) as resp:
-            x = await resp.json()
-            return x
-'''
 
 class Program:
     def __init__(self):
-        self.duration_in_seconds = EVENT_DURATION_MINUTES * 60
-        self.program_start = dt.now()
-        self.event_has_expired = False
-        self.tasks_cancelled_success = False
-        self.on_start_success = False
-
-        # store zone sensor readings
-        # used for monitoring 
-        self.clg_compressor_vals = {}
-        self.clg_compressor_overridden = []
-        self.num_of_clg_stages = 0
-        self.num_of_clg_stages_active = 0
-        self.percent_clg_active = 0.0
+        self.compressor_count = 0
+        self.cron_service_started = False
+        self.cron_service = aiocron.crontab('*/1 * * * *',
+                            func=self.evaluate_data,
+                            start=False)
 
 
-
-    async def on_start(self):
-
-        # calculate the cooling stages
-        self.num_of_clg_stages = len(MY_RTU_READ['devices'])
-
-        print(f"The number of cooling stages is: {self.num_of_clg_stages}")
-        logging.info(f"The number of cooling stages is: {self.num_of_clg_stages}")
-
-        x = await read_compressors()
-
-        time.sleep(10)
+    def event_checkr(self):
+        now_utc = datetime.now(timezone.utc)
+        if now_utc >= self.adr_start and now_utc <= self.adr_event_ends: #future time is greater
+            
+            return True
+        else:
+            return False
 
 
-        temporary_counter = 0
-        for stuff in x['data'].values():    
-            for clg_cmd in stuff.values():
-                if clg_cmd == 'active':
-                    temporary_counter += 1
+    def process_adr_event(self,event):
 
-        # if more or less stages of clg are counted than the
-        # last run, update the method object count
-        if self.num_of_clg_stages_active != temporary_counter:
-            self.num_of_clg_stages_active = temporary_counter
+        now_utc = datetime.now(timezone.utc)
+        signal = event['event_signals'][0]
+        intervals = signal['intervals']
 
-        print(f"Compressor status' is: ",self.clg_compressor_vals)
-        logging.info(f"Compressor status' is: ",self.clg_compressor_vals)
+        # loop through open ADR payload
+        for interval in intervals:
+            self.adr_start = interval['dtstart']
+            self.adr_payload_value = interval['signal_payload']
+            self.adr_duration = interval['duration']
 
-        print(f"Num of stages running is: ",self.num_of_clg_stages_active)
-        logging.info(f"Num of stages running is: {self.num_of_clg_stages_active}")
+            self.adr_event_ends = self.adr_start + self.adr_duration
 
-        if self.num_of_clg_stages_active != 0:
-            self.percent_clg_active = self.num_of_clg_stages_active / self.num_of_clg_stages
-            print(f"Percent clg active is: ",self.percent_clg_active)
-            logging.info(f"Percent clg active  is: {self.percent_clg_active}")
-
-
-
-    async def get_compresor_readings(self):
-        print("Getting Cooling Compressor Readings!!!")
-
-        x = await read_compressors()
-
-
-        temporary_counter = 0
-
-        for stuff in x['data'].values():    
-            for clg_cmd in stuff.values():
-                if clg_cmd == 'active':
-                    temporary_counter += 1
-
-        # if more or less stages of clg are counted than the
-        # last run, update the method object count
-        if self.num_of_clg_stages_active != temporary_counter:
-            self.num_of_clg_stages_active = temporary_counter
-
-        print(f"Compressor status' is: ",self.clg_compressor_vals)
-        logging.info(f"Compressor status' is: ",self.clg_compressor_vals)
-
-        print(f"Num of stages running is: ",self.num_of_clg_stages_active)
-        logging.info(f"Num of stages running is: {self.num_of_clg_stages_active}")
-
-        if self.num_of_clg_stages_active != 0:
-            self.percent_clg_active = self.num_of_clg_stages_active / self.num_of_clg_stages
-            print(f"Percent clg active is: ",self.percent_clg_active)
-            logging.info(f"Percent clg active  is: {self.percent_clg_active}")   
+    
+    async def get_data(self):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(read_url, json=my_rtu_reads) as resp:
+                print(resp.status)
+                resp_data = await resp.json()
+                print("resp_data: ",resp_data)
+                
+                counter = 0
+                for obj in resp_data:
+                    if obj == 'active':
+                        counter += 1       
+                self.compressor_count = counter
+                print("Active Cooling Count: ", self.compressor_count)
 
 
-        # run every minute
-        await asyncio.sleep(60)
-
- 
-    async def evauluate_data(self):
-
-        print("Evaluating the compressor data!!!")
-        print(f"Overridden zones are {self.clg_compressor_overridden}") 
-        logging.info(f"Overridden zones are {self.clg_compressor_overridden}") 
-
-        print(f"Percent clg active is: ",self.percent_clg_active)
-        logging.info(f"Percent clg active  is: {self.percent_clg_active}")   
+    async def turn_stages_off(self):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(write_url, json=write_url) as resp:
+                
+                print(resp.status)
+                resp_data = await resp.json()
 
 
-        print("Checking compressor statuses...")
-        logging.info("Checking compressor statuses...")
+                
 
-        print("self.num_of_clg_stages_active is: ",self.num_of_clg_stages_active)
-        logging.info(f"self.num_of_clg_stages_active is: {self.num_of_clg_stages_active}")
+    async def evaluate_data(self):
+        print("EVALUATE DATA CALLED, HOUR IS: ", datetime.now(timezone.utc))
 
-
-        '''
-        •	Check RTU compressor 1-4 status once every 60 seconds
-            o	If ALL the “Override Flag” variable on Comp #1 to #4 is OFF (or 0):
-                	IF only Comp#1 ON OR only both Comp#1 And Comp#2 ON: 
-                    •	PASS (do nothing)
-                	Eles if Comp#1, #2, and #3 ON AND Comp#4 OFF:
-                    •	Override Comp#3 AND #4 OFF
-                    •	Set “Override Flag” on Comp #3 and #4 ON (so at the end of the event remember to release both Compressor overrides)
-                    •	Wait to the end of the event to release both Comp #3 and #4 overrides
-                	Else if Comp#1, #2, #3 and #4 all are ON:
-                    •	Override Comp#4 OFF
-                    •	Set “Override Flag” on #4 ON (so at the end of the event remember to release it)
-                    •	Wait to the end of the event to release Comp #4 override
-            o	Else
-                	Do nothing
-
-        '''
-
-        if self.num_of_clg_stages_active == 0:
+        await self.get_data()
+        
+        if self.compressor_count == 0:
             print("No compressors are running, passing....")
-            logging.info("No compressors are running, passing....")
-
-
-        # stage 1, 2, 3 are ON and 4 is OFF
-        #elif self.num_of_clg_stages_active == self.num_of_clg_stages - 1:
-        elif self.num_of_clg_stages_active == 3:
+        elif self.compressor_count == 3:
             print("3 stages of cooling are running, overriding stage 3 and 4 OFF....")
-            logging.info("3 stages of cooling are running, overriding stage 3 and 4 OFF....")            
-
-
-        elif self.num_of_clg_stages_active == 4:
+        elif self.compressor_count == 4:
             print("4 stages of cooling are running, overriding stage ONLY stage 4 OFF....")
-            logging.info("4 stages of cooling are running, overriding stage ONLY stage 4 OFF....")   
-
         else:
-            print("Not enough cooling running to override OFF")
-            logging.info("Not enough cooling running to override OFF")                  
+            print("Not enough cooling running to override OFF for load shed")      
 
-        # run data analysis every 3 minutes
-        await asyncio.sleep(300)
+        #await asyncio.sleep(60)
 
-
-
-    async def check_time(self):
-        elapsed_time = dt.now() - self.program_start
-        if (dt.now() - self.program_start > td(seconds = self.duration_in_seconds)):
-            self.event_has_expired = True
-            print("Event is DONE!!!, elapsed time: ",elapsed_time)
-            logging.info(f"Event is DONE!!!, elapsed time: {elapsed_time}")
-        else:
-            print("Event is STILL RUNNING!!!, elapsed time: ",elapsed_time)
-            logging.info(f"Event is not done!, elapsed time: {elapsed_time}")
-
-        await asyncio.sleep(5)
-
-
-
-    async def on_end(self):
-
-        print("On End Releasing All Overrides!")
-        logging.info("On End Releasing All Overrides!")
-
-
-
-
-
-    async def main(self):
-
-
-        await self.on_start()
-
-        print("On Start Done!")
-        logging.info("On Start Done!")
-
-
-        while not self.tasks_cancelled_success:
-
-            readings = asyncio.ensure_future(self.get_compresor_readings())
-            analysis = asyncio.ensure_future(self.evauluate_data())
-            checker = asyncio.ensure_future(self.check_time())
-
-            await readings # run every 60 seconds   
-            await analysis # run every 120 seconds  
-            await checker  # run every 5 seconds
-                
-                
-            if self.event_has_expired:
-                # close other tasks before final shutdown
-                readings.cancel()
-                analysis.cancel()
-                checker.cancel()
-                self.tasks_cancelled_success = True
-                print("Asyncio Tasks All Cancelled Success!")
-                logging.info("Asyncio Tasks All Cancelled Success!")
-
-        # script ends, do only once self.on_end() when even is done
-        await self.on_end()
-        print("on_end called!")
-        logging.info("on_end called!")
-
-
+            
+            
 async def main():
+    loop = asyncio.get_running_loop()
     program = Program()
-    await program.main()
+
+    # process dummy event
+    program.process_adr_event(dummy_event)
+
+    while True:
+        
+        # run event checker in the default loop's executor:
+        event_is_true = await loop.run_in_executor(None, program.event_checkr)
+
+        print("program.cron_service_started: ",program.cron_service_started)
+        print("event_is_true: ",event_is_true)
+        
+        if event_is_true and not program.cron_service_started:
+            program.cron_service.start()
+            program.cron_service_started = True
+            print("cron start!!")
+
+        elif event_is_true and program.cron_service_started:
+            pass
+
+        elif not event_is_true and program.cron_service_started:
+            program.cron_service.stop()
+            program.cron_service_started = False
+            print("cron stop!!")
+            
+        else:
+            pass
+            
+        await asyncio.sleep(5)  
+
+
+asyncio.run(main())
 
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+
+
+
