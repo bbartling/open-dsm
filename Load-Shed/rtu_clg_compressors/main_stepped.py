@@ -34,7 +34,10 @@ off_value = "inactive"
 
 
 # Event duration
-event_duration_minutes = 5
+event_1_duration = 1 # 2 hours highest stage off
+event_2_duration = 1 # 1 hours stage 2 off
+event_3_duration = 1 # 1 hours stage 1 off
+
 
 
 # make requests to count clg stages
@@ -69,7 +72,6 @@ if stages_running == 0:
 
 
 # stage 1, 2, 3 are ON and 4 is OFF
-#elif self.num_of_clg_stages_active == self.num_of_clg_stages - 1:
 elif stages_running == 3:
     print(f"3 stages of cooling are running, overriding stage 3 and 4 OFF....")
     logging.info("3 stages of cooling are running, overriding stage 3 and 4 OFF....")            
@@ -104,21 +106,61 @@ else:
 
 
 
+print(f"sleeping now event_1_duration... for in minutes: {event_1_duration * 60}")
+logging.info(f"sleeping now event_1_duration... for in minutes: {event_1_duration * 60}") 
+time.sleep(event_1_duration * 60)
+
+
+
 """
-HALF TIME
+event_1_duration done - killed highest stage
+next kill stage 2
 """
 
 
-print(f"sleeping now... for in minutes: {event_duration_minutes * 60}")
-logging.info(f"sleeping now... for in minutes: {event_duration_minutes * 60}") 
-time.sleep(event_duration_minutes * 60)
+# create write statement and run
+write_stage_2_off = f"{address} binaryOutput 4 presentValue {off_value} - {priority}"
+print("Excecuting BACnet write: ", write_stage_2_off)
+bacnet.write(write_stage_2_off)
+
+print(f"sleeping now event_2_duration... for in minutes: {event_2_duration * 60}")
+logging.info(f"sleeping now event_2_duration... for in minutes: {event_2_duration * 60}") 
+time.sleep(event_2_duration * 60)
+
+
+
+"""
+kill stage 2 done
+next kill stage 1
+"""
+
+
+# create write statement and run
+write_stage_1_off = f"{address} binaryOutput 3 presentValue {off_value} - {priority}"
+print("Excecuting BACnet write: ", write_stage_1_off)
+bacnet.write(write_stage_1_off)
+
+print(f"sleeping now event_3_duration... for in minutes: {event_3_duration * 60}")
+logging.info(f"sleeping now event_3_duration... for in minutes: {event_3_duration * 60}") 
+time.sleep(event_3_duration * 60)
+
+
+"""
+ALL DONE! ALL Stages should be off
+"""
 
 
 print("time to release!!!")
 logging.info("time to release!!!")
 
 
-# release stage 3 and 4 stages
+# release all stages
+release_req_stag_1 = f"{address} binaryOutput 3 presentValue null - {priority}"
+bacnet.write(release_req_stag_1)
+
+release_req_stag_2 = f"{address} binaryOutput 4 presentValue null - {priority}"
+bacnet.write(release_req_stag_2)
+
 release_req_stag_3 = f"{address} binaryOutput 5 presentValue null - {priority}"
 bacnet.write(release_req_stag_3)
 
