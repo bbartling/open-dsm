@@ -72,7 +72,7 @@ if stages_running == 0:
 
 
 # stage 1, 2, 3 are ON and 4 is OFF
-elif stages_running == 3:
+elif stages_running == 3 or stages_running == 2:
     print(f"3 stages of cooling are running, overriding stage 3 and 4 OFF....")
     logging.info("3 stages of cooling are running, overriding stage 3 and 4 OFF....")            
 

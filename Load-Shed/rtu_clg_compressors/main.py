@@ -69,8 +69,7 @@ if stages_running == 0:
 
 
 # stage 1, 2, 3 are ON and 4 is OFF
-#elif self.num_of_clg_stages_active == self.num_of_clg_stages - 1:
-elif stages_running == 3:
+elif stages_running == 3 or stages_running == 2:
     print(f"3 stages of cooling are running, overriding stage 3 and 4 OFF....")
     logging.info("3 stages of cooling are running, overriding stage 3 and 4 OFF....")            
 
@@ -103,14 +102,13 @@ else:
 
 
 
-
 """
 HALF TIME
 """
 
 
-print(f"sleeping now... for in minutes: {event_duration_minutes * 60}")
-logging.info(f"sleeping now... for in minutes: {event_duration_minutes * 60}") 
+print(f"sleeping now... for in seconds: {event_duration_minutes * 60}")
+logging.info(f"sleeping now... for in seconds: {event_duration_minutes * 60}") 
 time.sleep(event_duration_minutes * 60)
 
 
