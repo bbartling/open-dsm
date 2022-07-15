@@ -5,7 +5,7 @@ import os
 
 # local time zone
 # year, month, day, hour, minute
-target_start = datetime(2022, 7, 13, 13, 30)
+target_start = datetime(2022, 7, 12, 12, 0)
 dt_string = target_start.strftime("%m/%d/%Y %H:%M:%S")
 
 def timer(countdown_to):
@@ -24,7 +24,7 @@ try:
     timer(target_start)
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    main_script = os.path.join(dir_path,'main.py')
+    main_script = os.path.join(dir_path,'main_stepped.py')
 
     print("READY to run main script now!!")
     os.system(f'python {main_script}')

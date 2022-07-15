@@ -18,18 +18,19 @@ bacnet = BAC0.lite()
 address = "10.200.200.27"
 object_type = "analogValue"
 object_instance = "12"
-priority = 8
+priority = 7
+disch_temp_adder = 5.0 # add to the rtu leav temp setpoint
 
 
 # Event duration
-event_duration_minutes = 5
+event_duration_minutes = 30
 
 
 initial_setpoint = f"{address} {object_type} {object_instance} presentValue"
 initial_setpoint_val = bacnet.read(initial_setpoint)
 print(f"Initial RTU discharge air setpoint is: {initial_setpoint_val}")
 
-new_initial_setpoint_val = initial_setpoint_val + 5
+new_initial_setpoint_val = initial_setpoint_val + disch_temp_adder
 print(f"The RTU discharge air setpoint +5 degrees F is: {new_initial_setpoint_val}")
 
 # create write statement and run
