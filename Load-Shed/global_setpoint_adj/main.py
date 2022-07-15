@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 import csv
 
-priority = '10'
+priority = '8'
 duration_minutes = 5
 
 # override JCI reheat coils shut / Trane not writeable
@@ -12,7 +12,7 @@ jci_zntsp_object_type_instance = 'analogValue 1103'
 _zntsp_adder = 2.0
 
 trane_zntsp_adder = 2.0 * 5/9 # Trane BACnet data is Celcuis
-trane_zntsp_object_type_instance = 'analogValue 1103'
+trane_zntsp_object_type_instance = 'analogValue 27'
 
 
 # datetime object containing current date and time
@@ -53,7 +53,7 @@ for bacnet_inst,address in device_mapping.items():
 print("jci_addresses is: ",jci_addresses)
 
 for bacnet_inst,address in device_mapping.items():
-    if bacnet_inst <= 10000: #Trane boxes have inst ID less than 100 on this site
+    if bacnet_inst > 10000: #Trane boxes have inst ID less than 100 on this site
         trane_addresses.append(address)
 print("trane_addresses is: ",trane_addresses)
 
@@ -69,9 +69,12 @@ def bacnet_requester(action,req_str):
         print("Write success")
 
 
+print("JCI ADDRESSES: ",jci_addresses)
+
+
 for address in jci_addresses:
     try:
-        if address in bad_addresses:
+        if address not in bad_addresses:
             print("Doing DEVICE: ",address)
             logging.info(f"Doing DEVICE: {address}")
 
@@ -101,10 +104,11 @@ for address in jci_addresses:
         bad_addresses.append(address)
 
 
+print("TRANE ADDRESSES: ",trane_addresses)
 
 for address in trane_addresses:
     try:
-        if address in bad_addresses:
+        if address not in bad_addresses:
             print("Doing DEVICE: ",address)
             logging.info(f"Doing DEVICE: {address}")
 
@@ -161,9 +165,6 @@ for address in jci_addresses_written:
 
         print("******************************************")
 
-        jci_addresses_written.append(address)
-
-
     except Exception as error:
         print(f"OOF error on device {address}: {error}")
         bad_addresses.append(address)
@@ -195,7 +196,7 @@ bacnet.disconnect()
 
 
 print("bad addresses found: ",bad_addresses)
-print("clean up now...")
+print("clean up now... write bad addresses to CSV")
 with open('bad_addresses.csv', 'w', newline='') as csv_1:
   csv_out = csv.writer(csv_1)
   csv_out.writerows([bad_addresses[index]] for index in range(0, len(bad_addresses)))
