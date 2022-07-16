@@ -34,9 +34,9 @@ off_value = "inactive"
 
 
 # Event duration
-event_1_duration = 1 # 2 hours highest stage off
-event_2_duration = 1 # 1 hours stage 2 off
-event_3_duration = 1 # 1 hours stage 1 off
+event_1_duration = 5 # 2 hours highest stage off
+event_2_duration = 5 # 1 hours stage 2 off
+event_3_duration = 5 # 1 hours stage 1 off
 
 
 
@@ -106,8 +106,8 @@ else:
 
 
 
-print(f"sleeping now event_1_duration... for in minutes: {event_1_duration * 60}")
-logging.info(f"sleeping now event_1_duration... for in minutes: {event_1_duration * 60}") 
+print(f"sleeping now event_1_duration... for in seconds: {event_1_duration * 60}")
+logging.info(f"sleeping now event_1_duration... for in seconds: {event_1_duration * 60}") 
 time.sleep(event_1_duration * 60)
 
 
@@ -123,8 +123,8 @@ write_stage_2_off = f"{address} binaryOutput 4 presentValue {off_value} - {prior
 print("Excecuting BACnet write: ", write_stage_2_off)
 bacnet.write(write_stage_2_off)
 
-print(f"sleeping now event_2_duration... for in minutes: {event_2_duration * 60}")
-logging.info(f"sleeping now event_2_duration... for in minutes: {event_2_duration * 60}") 
+print(f"sleeping now event_2_duration... for in seconds: {event_2_duration * 60}")
+logging.info(f"sleeping now event_2_duration... for in seconds: {event_2_duration * 60}") 
 time.sleep(event_2_duration * 60)
 
 
@@ -140,8 +140,8 @@ write_stage_1_off = f"{address} binaryOutput 3 presentValue {off_value} - {prior
 print("Excecuting BACnet write: ", write_stage_1_off)
 bacnet.write(write_stage_1_off)
 
-print(f"sleeping now event_3_duration... for in minutes: {event_3_duration * 60}")
-logging.info(f"sleeping now event_3_duration... for in minutes: {event_3_duration * 60}") 
+print(f"sleeping now event_3_duration... for in seconds: {event_3_duration * 60}")
+logging.info(f"sleeping now event_3_duration... for in seconds: {event_3_duration * 60}") 
 time.sleep(event_3_duration * 60)
 
 

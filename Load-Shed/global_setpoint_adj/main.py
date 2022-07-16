@@ -23,6 +23,26 @@ logging.basicConfig(filename=f'log_{dt_string}.log', level=logging.INFO)
 
 print(f"Running NOW date and time is {dt_string}")
 
+
+try:
+    print(f"Trying to see if any BAD BACnet addresses exist from previous runs!")
+
+    with open('bad_addresses.csv', newline='') as f:
+        reader = csv.reader(f)
+        data = list(reader)
+
+    # flattens list of lists
+    bad_addresses = sum(data, [])
+
+    print("BAD ADDRESSES found that the program will skip over: ",bad_addresses)
+
+except Exception as error:
+    print(f"couldnt open up previous runs of BAD BACnet addresses!")
+    bad_addresses = [] # errors out
+
+
+
+
 # define bacnet app
 bacnet = BAC0.lite()
 time.sleep(2)
@@ -33,7 +53,7 @@ device_mapping = {}
 
 jci_addresses = []
 trane_addresses = []
-bad_addresses = [] # errors out
+
 
 jci_addresses_written = []
 trane_addresses_written = []
@@ -70,8 +90,6 @@ def bacnet_requester(action,req_str):
 
 
 print("JCI ADDRESSES: ",jci_addresses)
-
-
 for address in jci_addresses:
     try:
         if address not in bad_addresses:
