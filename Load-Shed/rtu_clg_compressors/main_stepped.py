@@ -25,7 +25,7 @@ object_type_and_instance = [
 
 # Duct Pressure RTU Point
 address = "10.200.200.27"
-priority = 8
+priority = 7
 
 
 # compressor read values
@@ -34,9 +34,9 @@ off_value = "inactive"
 
 
 # Event duration
-event_1_duration = 5 # 2 hours highest stage off
-event_2_duration = 5 # 1 hours stage 2 off
-event_3_duration = 5 # 1 hours stage 1 off
+event_1_duration = 60 # 2 hours highest stage off
+event_2_duration = 60 # 1 hours stage 2 off
+event_3_duration = 60 # 1 hours stage 1 off
 
 
 
@@ -73,8 +73,8 @@ if stages_running == 0:
 
 # stage 1, 2, 3 are ON and 4 is OFF
 elif stages_running == 3 or stages_running == 2:
-    print(f"3 stages of cooling are running, overriding stage 3 and 4 OFF....")
-    logging.info("3 stages of cooling are running, overriding stage 3 and 4 OFF....")            
+    print(f"2 or 3 stages of cooling are running, overriding stage 3 and 4 OFF....")
+    logging.info("2 or 3 stages of cooling are running, overriding stage 3 and 4 OFF....")            
 
     # create write statement and run
     write_stage_3_off = f"{address} binaryOutput 5 presentValue {off_value} - {priority}"

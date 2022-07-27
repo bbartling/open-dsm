@@ -23,7 +23,7 @@ disch_temp_adder = 5.0 # add to the rtu leav temp setpoint
 
 
 # Event duration
-event_duration_minutes = 30
+event_duration_minutes = 120
 
 
 initial_setpoint = f"{address} {object_type} {object_instance} presentValue"

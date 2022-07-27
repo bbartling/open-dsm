@@ -15,6 +15,7 @@ print(f"Running NOW date and time is {dt_string}")
 # define bacnet app
 bacnet = BAC0.lite()
 
+# cooling compressors
 object_type_and_instance = [
                 "binaryOutput 3", #stage 1
                 "binaryOutput 4", #stage 2
@@ -28,13 +29,13 @@ address = "10.200.200.27"
 priority = 8
 
 
-# compressor read values
+# compressor read values per BAC0
 on_value = "active"
 off_value = "inactive"
 
 
 # Event duration
-event_duration_minutes = 5
+event_duration_minutes = 120
 
 
 # make requests to count clg stages
