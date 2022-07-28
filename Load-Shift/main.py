@@ -1,28 +1,32 @@
-import BAC0, time, schedule
+import BAC0, time
 import logging
 from datetime import datetime
 import csv
 
 
-
+# BACnet write priority
 priority = '8'
-duration_minutes = 5
 
 # override JCI reheat coils shut / Trane not writeable
 jci_zntsp_object_type_instance = 'analogValue 1103'
 trane_zntsp_object_type_instance = 'analogValue 27'
 hot_water_sys_enable = 'binaryValue 7'
 
-
-_zntsp_5AM = 68.0
+# zone setpoints to write at a time
+_zntsp_5AM = 68.01
 _zntsp_10AM = 70.0
 _zntsp_12PM = 72.0
 _zntsp_2PM = 74.0
 
+# boolean objects to write once
+five_am_done = False
+ten_am_done = False
+twelve_pm_done = False
+two_pm_done = False
+final_release_done = False
 
 # datetime object containing current date and time
 now = datetime.now()
-
 dt_string = now.strftime("%m_%d_%Y %H:%M:%S")
 logging.basicConfig(filename=f'log_{dt_string}.log', level=logging.INFO)
 print(f"Running NOW date and time is {dt_string}")
@@ -90,7 +94,7 @@ def bacnet_requester(action,req_str):
         print("Write success")
 
 
-
+# write new setpoints function
 def write_new_zntsp_all(setpoint):
     print("JCI ADDRESSES: ",jci_addresses)
     for address in jci_addresses:
@@ -118,7 +122,6 @@ def write_new_zntsp_all(setpoint):
 
     # (°F − 32) × 5/9
     trane_setpoint = (setpoint - 32) * 5/9
-
     print("TRANE ADDRESSES: ",trane_addresses)
     for address in trane_addresses:
         try:
@@ -144,8 +147,7 @@ def write_new_zntsp_all(setpoint):
             bad_addresses.append(address)
 
 
-
-
+# release all overrides function
 def release_all():
     for address in jci_addresses_written:
         try:
@@ -179,46 +181,77 @@ def release_all():
             bad_addresses.append(address)
 
 
+# turn off boiler function
+def turn_off_hw_sys():
+    # turn off boiler to start with
+    turn_off_boiler = f'10.200.200.32 {hot_water_sys_enable} presentValue \
+        inactive - {priority}'
 
-# turn off boiler to start with
-turn_off_boiler = f'{address} {hot_water_sys_enable} presentValue \
-    1 - {priority}'
+    print("BOILER OFF! - ", turn_off_boiler)
+    bacnet_requester("write",turn_off_boiler)
 
-print("Excecuting turn_off_boiler statement:", turn_off_boiler)
-bacnet_requester("write",turn_off_boiler)
 
-'''
-SCHEDULER BELOW - Dan Bader creation
-https://github.com/dbader/schedule
+# release boiler function (turn back on)
+def release_hw_sys():
+    # release boiler when released all VAV boxes
+    release_boiler = f'10.200.200.32 {hot_water_sys_enable} presentValue \
+        null - {priority}'
+    print("BOILER RELEASE! - ", release_boiler)
+    bacnet_requester("write",release_boiler)
 
-'''
 
-schedule.every().day.at("5:00").do(write_new_zntsp_all, setpoint=_zntsp_5AM)
-schedule.every().day.at("10:00").do(write_new_zntsp_all, setpoint=_zntsp_10AM)
-schedule.every().day.at("12:00").do(write_new_zntsp_all, setpoint=_zntsp_12PM)
-schedule.every().day.at("14:00").do(write_new_zntsp_all, setpoint=_zntsp_2PM)
-schedule.every().day.at("18:00").do(release_all)
+# check time every second called by the while loop
+def time_checker(now):
+    global five_am_done, ten_am_done, twelve_pm_done, two_pm_done, final_release_done
 
-while True:
-    schedule.run_pending()
+    if now.hour >= 5 and now.hour < 10:
+        if not five_am_done:
+            turn_off_hw_sys()
+            write_new_zntsp_all(_zntsp_5AM)
+            five_am_done = True
+
+    elif now.hour >= 10 and now.hour < 12:
+        if not ten_am_done:
+            write_new_zntsp_all(_zntsp_10AM)
+            ten_am_done = True
+
+    elif now.hour >= 12 and now.hour < 14:
+        if not twelve_pm_done:
+            write_new_zntsp_all(_zntsp_12PM)
+            twelve_pm_done = True
+
+    elif now.hour >= 14 and now.hour < 16:
+        if not two_pm_done:
+            write_new_zntsp_all(_zntsp_2PM)
+            two_pm_done = True
+
+    else:
+        if not final_release_done:
+            release_hw_sys()
+            release_all()
+            final_release_done = True
+
+
+
+while not final_release_done:
+
+    # datetime object
+    now_time = datetime.now()
+    time_checker(now_time)
     time.sleep(1)
 
 
 
-
-# turn off boiler to start with
-release_boiler = f'{address} {hot_water_sys_enable} presentValue \
-    null - {priority}'
-print("SCHEDULER DONE!! Releasing boiler back to control", release_boiler)
-bacnet_requester("write",release_boiler)
-
+# gracefully exit BACnet app BAC0 if you can
 print("ALL DIGITY DONE!!!")
 bacnet.disconnect()
 
-
-print("bad addresses found: ",bad_addresses)
+# collect bad addresses so we dont try them next go around
 print("clean up now... write bad addresses to CSV")
+print("bad addresses found: ",bad_addresses)
 with open('bad_addresses.csv', 'w', newline='') as csv_1:
   csv_out = csv.writer(csv_1)
   csv_out.writerows([bad_addresses[index]] for index in range(0, len(bad_addresses)))
+
+
 
