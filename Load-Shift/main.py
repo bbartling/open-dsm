@@ -13,10 +13,10 @@ trane_zntsp_object_type_instance = 'analogValue 27'
 hot_water_sys_enable = 'binaryValue 7'
 
 # zone setpoints to write at a time
-_zntsp_5AM = 68.01
-_zntsp_10AM = 70.0
-_zntsp_12PM = 72.0
-_zntsp_2PM = 74.0
+_zntsp_5AM = 70.0
+_zntsp_10AM = 72.0
+_zntsp_12PM = 74.0
+_zntsp_2PM = 76.0
 
 # boolean objects to write once
 five_am_done = False
@@ -27,62 +27,58 @@ final_release_done = False
 
 # datetime object containing current date and time
 now = datetime.now()
-dt_string = now.strftime("%m_%d_%Y %H:%M:%S")
+dt_string = now.strftime("%m_%d_%Y %H_%M_%S")
 logging.basicConfig(filename=f'log_{dt_string}.log', level=logging.INFO)
 print(f"Running NOW date and time is {dt_string}")
-
-
-try:
-    print(f"Trying to see if any BAD BACnet addresses exist from previous runs!")
-    with open('bad_addresses.csv', newline='') as f:
-        reader = csv.reader(f)
-        data = list(reader)
-    # flattens list of lists
-    bad_addresses = sum(data, [])
-    print("BAD ADDRESSES found that the program will skip over: ",bad_addresses)
-
-except Exception as error:
-    print(f"couldnt open up previous runs of BAD BACnet addresses!")
-    bad_addresses = [] # errors out
 
 
 # define bacnet app
 bacnet = BAC0.lite()
 time.sleep(2)
 
-# generates all BACnet addresses some are not VAV boxes
-devices = bacnet.whois(global_broadcast=True)
-device_mapping = {}
 
-jci_addresses = []
-trane_addresses = []
+def load_addresses(csv_file):
+    try:
+        print(f"Loading csv file: {csv_file}!")
+        with open(f'{csv_file}', newline='') as f:
+            reader = csv.reader(f)
+            data = list(reader)
 
-jci_addresses_written = []
+        # flattens list of lists
+        csv_file = sum(data, [])
+        print(f"{csv_file} addresses loaded: ",csv_file)
+
+    except Exception as error:
+        print(f"couldnt open up previous runs of BAD BACnet addresses!")
+        csv_file = [] # errors out
+
+    return csv_file
+
+
+try:
+    print(f"Loading JCI addresses!")
+    with open('addresses_jci.csv', newline='') as f:
+        reader = csv.reader(f)
+        data = list(reader)
+    # flattens list of lists
+    jci_addresses = sum(data, [])
+    print("JCI ADDRESSES found that the program will run: ",jci_addresses)
+
+except Exception as error:
+    print(f"couldnt open up previous runs of JCI BACnet addresses!")
+    jci_addresses = [] # errors out
+
+
+'''
+LOAD ADDRESSES!!!
+'''
+
+jci_addresses = load_addresses("addresses_jci.csv")
+trane_addresses = load_addresses("addresses_trane.csv")
+bad_addresses = load_addresses("addresses_bad.csv")
+
 trane_addresses_written = []
-
-
-for device in devices:
-    if isinstance(device, tuple):
-        device_mapping[device[1]] = device[0]
-        print("Detected device %s with address %s" % (str(device[1]), str(device[0])))
-
-print(device_mapping)
-print((str(len(device_mapping)) + " devices discovered on network."))
-
-
- # Rooftop AHU is ID 1100, Trane Sup is 100, and boiler is 1102
- # there are some other random devices but most are VAV boxes
-for bacnet_inst,address in device_mapping.items():
-    if bacnet_inst < 100: #JCI boxes have inst ID less than 100 on this site
-        jci_addresses.append(address)
-print("jci_addresses is: ",jci_addresses)
-
-for bacnet_inst,address in device_mapping.items():
-    if bacnet_inst > 10000: #Trane boxes have inst ID less than 100 on this site
-        trane_addresses.append(address)
-print("trane_addresses is: ",trane_addresses)
-
-
+jci_addresses_written = []
 
 # function to BACnet read and write
 def bacnet_requester(action,req_str):
@@ -206,7 +202,7 @@ def time_checker(now):
 
     if now.hour >= 5 and now.hour < 10:
         if not five_am_done:
-            turn_off_hw_sys()
+            #turn_off_hw_sys()
             write_new_zntsp_all(_zntsp_5AM)
             five_am_done = True
 
@@ -227,14 +223,14 @@ def time_checker(now):
 
     else:
         if not final_release_done:
-            release_hw_sys()
+            #release_hw_sys()
             release_all()
             final_release_done = True
+            print("FINAL REALEASE DONE!!!")
 
 
 
 while not final_release_done:
-
     # datetime object
     now_time = datetime.now()
     time_checker(now_time)
@@ -242,6 +238,7 @@ while not final_release_done:
 
 
 
+# after while loop expires
 # gracefully exit BACnet app BAC0 if you can
 print("ALL DIGITY DONE!!!")
 bacnet.disconnect()
@@ -249,9 +246,19 @@ bacnet.disconnect()
 # collect bad addresses so we dont try them next go around
 print("clean up now... write bad addresses to CSV")
 print("bad addresses found: ",bad_addresses)
-with open('bad_addresses.csv', 'w', newline='') as csv_1:
+
+with open('addresses_bad.csv', 'w', newline='') as csv_1:
   csv_out = csv.writer(csv_1)
   csv_out.writerows([bad_addresses[index]] for index in range(0, len(bad_addresses)))
 
 
+# save output for devices discovered
+# troubleshoot this list if devices seem like they were skipped
+with open('addresses_jci.csv', 'w', newline='') as jci:
+  csv_out = csv.writer(jci)
+  csv_out.writerows([jci_addresses[index]] for index in range(0, len(jci_addresses)))
 
+
+with open('addresses_trane.csv', 'w', newline='') as trane:
+  csv_out = csv.writer(trane)
+  csv_out.writerows([trane_addresses[index]] for index in range(0, len(trane_addresses)))

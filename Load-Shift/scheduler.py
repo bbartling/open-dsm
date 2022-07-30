@@ -5,7 +5,7 @@ import os
 
 # local time zone
 # year, month, day, hour, minute
-target_start = datetime(2022, 7, 28, 5, 5)
+target_start = datetime(2022, 7, 30, 5, 5)
 dt_string = target_start.strftime("%m/%d/%Y %H:%M:%S")
 
 def timer(countdown_to):
