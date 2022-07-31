@@ -1,5 +1,5 @@
 import BAC0, time
-import logging
+import logging, os
 from datetime import datetime
 import csv
 
@@ -24,23 +24,31 @@ ten_am_done = False
 twelve_pm_done = False
 two_pm_done = False
 final_release_done = False
+load_csv_files_fail = False
 
 # datetime object containing current date and time
 now = datetime.now()
 dt_string = now.strftime("%m_%d_%Y %H_%M_%S")
-logging.basicConfig(filename=f'log_{dt_string}.log', level=logging.INFO)
-print(f"Running NOW date and time is {dt_string}")
+dir_path = os.path.dirname(os.path.realpath(__file__))
+filename = os.path.join(dir_path, f'log_{dt_string}.log')
 
+# Logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-# define bacnet app
-bacnet = BAC0.lite()
-time.sleep(2)
+file_handler = logging.FileHandler(filename)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logger.addHandler(file_handler)
 
+print("dir_path is: ",dir_path)
 
 def load_addresses(csv_file):
     try:
         print(f"Loading csv file: {csv_file}!")
-        with open(f'{csv_file}', newline='') as f:
+        full_csv_path = os.path.join(dir_path, f'{csv_file}')
+        print("full_csv_path: ",full_csv_path)
+        with open(full_csv_path, newline='') as f:
             reader = csv.reader(f)
             data = list(reader)
 
@@ -49,33 +57,31 @@ def load_addresses(csv_file):
         print(f"{csv_file} addresses loaded: ",csv_file)
 
     except Exception as error:
-        print(f"couldnt open up previous runs of BAD BACnet addresses!")
+        print(f"CSV file load error: {error}")
         csv_file = [] # errors out
 
     return csv_file
 
 
-try:
-    print(f"Loading JCI addresses!")
-    with open('addresses_jci.csv', newline='') as f:
-        reader = csv.reader(f)
-        data = list(reader)
-    # flattens list of lists
-    jci_addresses = sum(data, [])
-    print("JCI ADDRESSES found that the program will run: ",jci_addresses)
 
-except Exception as error:
-    print(f"couldnt open up previous runs of JCI BACnet addresses!")
-    jci_addresses = [] # errors out
 
 
 '''
 LOAD ADDRESSES!!!
 '''
 
+
 jci_addresses = load_addresses("addresses_jci.csv")
 trane_addresses = load_addresses("addresses_trane.csv")
 bad_addresses = load_addresses("addresses_bad.csv")
+
+
+# list are blank 
+# if contrab cant load CSV files it will hit here
+if not jci_addresses and not trane_addresses:
+    print("LOAD CSV FILE ERROR!")
+    load_csv_files_fail = True
+
 
 trane_addresses_written = []
 jci_addresses_written = []
@@ -230,35 +236,51 @@ def time_checker(now):
 
 
 
-while not final_release_done:
-    # datetime object
-    now_time = datetime.now()
-    time_checker(now_time)
-    time.sleep(1)
+if not load_csv_files_fail:
+
+    try: 
+        # define bacnet app
+        bacnet = BAC0.lite()
+        time.sleep(2)
+
+
+        while not final_release_done:
+            # datetime object
+            now_time = datetime.now()
+            time_checker(now_time)
+            time.sleep(1)
 
 
 
-# after while loop expires
-# gracefully exit BACnet app BAC0 if you can
-print("ALL DIGITY DONE!!!")
-bacnet.disconnect()
+        # after while loop expires
+        # gracefully exit BACnet app BAC0 if you can
+        print("ALL DIGITY DONE!!!")
+        bacnet.disconnect()
 
-# collect bad addresses so we dont try them next go around
-print("clean up now... write bad addresses to CSV")
-print("bad addresses found: ",bad_addresses)
+        # collect bad addresses so we dont try them next go around
+        print("clean up now... write bad addresses to CSV")
+        print("bad addresses found: ",bad_addresses)
 
-with open('addresses_bad.csv', 'w', newline='') as csv_1:
-  csv_out = csv.writer(csv_1)
-  csv_out.writerows([bad_addresses[index]] for index in range(0, len(bad_addresses)))
-
-
-# save output for devices discovered
-# troubleshoot this list if devices seem like they were skipped
-with open('addresses_jci.csv', 'w', newline='') as jci:
-  csv_out = csv.writer(jci)
-  csv_out.writerows([jci_addresses[index]] for index in range(0, len(jci_addresses)))
+        with open('addresses_bad.csv', 'w', newline='') as csv_1:
+            csv_out = csv.writer(csv_1)
+            csv_out.writerows([bad_addresses[index]] for index in range(0, len(bad_addresses)))
 
 
-with open('addresses_trane.csv', 'w', newline='') as trane:
-  csv_out = csv.writer(trane)
-  csv_out.writerows([trane_addresses[index]] for index in range(0, len(trane_addresses)))
+        # save output for devices discovered
+        # troubleshoot this list if devices seem like they were skipped
+        with open('addresses_jci.csv', 'w', newline='') as jci:
+            csv_out = csv.writer(jci)
+            csv_out.writerows([jci_addresses[index]] for index in range(0, len(jci_addresses)))
+
+
+        with open('addresses_trane.csv', 'w', newline='') as trane:
+            csv_out = csv.writer(trane)
+            csv_out.writerows([trane_addresses[index]] for index in range(0, len(trane_addresses)))
+
+    except: 
+        # kill bacnet service if an error happens
+        bacnet.disconnect()
+
+else:
+    print("LOAD CSV ERROR EXITING PROGRAM EARLY")
+    logging.info(f"LOAD CSV ERROR EXITING PROGRAM EARLY")
