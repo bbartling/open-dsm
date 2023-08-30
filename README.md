@@ -8,7 +8,7 @@ The server application extracts the eGauge's power readings via Modbus every min
 
 The overarching objective is to empower consulting engineers, who are adept in building systems and articulating operational sequences for continuous load management. This solution offers a robust platform, eliminating the need for extensive IT, cybersecurity, IoT, or database management proficiencies. Instead, it leans into the engineer's core skills: devising engineering solutions, conveying operational sequences to control contractors, executing and troubleshooting Python scripts, configuring simple Linux devices like the Raspberry Pi in the field, coordinating eGauge meter setups with electricians, and as a best practice, ensuring that operational sequences meet DSM objectives.
 
- 
+**Repo is still in development!**
 
 **More comming soon for the edge device app!**
 
