@@ -1,13 +1,18 @@
 # algorithm
 
-The algorithm deployed in the code to forecast electrical power employs the Exponential Moving Average (EMA), a widely recognized statistical method to smooth time series data. EMA assigns greater weight to the most recent data points, making it particularly effective for real-time applications. In essence, EMA reduces the lag by applying more weight to recent values, allowing it to react more responsively to recent changes compared to a simple moving average.
+This code deploys a time-series forecasting approach for predicting electrical power consumption using a machine learning-based methodology. The multi-output forecasting model is trained on historical data and aims to forecast 60 future values based on input features derived from the time series.
 
-In the context of this code, EMA operates on a selection of historical data points—specifically the last 60, 30, 15, and 5 readings—to produce a forecasted value of electrical power. By comparing these forecasted values with the actual real-time electrical power readings, the algorithm gauges the system's power consumption trends. Armed with these insights, the system can actively manage or "curtail" adjustable electrical loads within the building. The ultimate objective is to harness the predictive power of the EMA in tandem with real-time electrical readings, facilitating proactive measures to ensure the building aligns with Demand Side Management (DSM) goals.
+The model operates by using the last 60 readings from the time series to predict the next 60-minute interval of electrical power. This ensures the model remains adaptive and responsive to the immediate past while predicting the near future.
 
+The primary objective of this prediction mechanism is to actively manage or "curtail" adjustable electrical loads within a building. This predictive capability allows the system to make informed decisions and take proactive measures, ensuring the building aligns with Demand Side Management (DSM) goals.
  
-### Example Algorithm Testing on Historical Data
-This plot below represents the historical data from the `process_raw_data` directory of one minute sampled data from an eGauge at a small commercial building in the upper Midwest USA that contained a VAV air handling unit system and an air cooled chiller. The plot below attempts to deptict a summer of electrical power readings on the minute interval level and a forecasted 60 minutes into the future with EMA as well as subplots for the EMA on forecasting 60, 30, 15, and 5 minutes into the future.
-![Alt text](/algorithm_testing/plots/ema_forecast.png)
+### Example Algorithm Testing on Historical Data with `ml_forecast.py`
+The visualization below represents historical data sourced from the process_raw_data directory. This data consists of one-minute sampled readings from an eGauge at a small commercial building in the upper Midwest USA equipped with a VAV air handling unit system and an air-cooled chiller.
 
-This is a zoom plot of the highest demand day found in the dataset.
-![Alt text](/algorithm_testing/plots/ema_forecast_zoomed.png)
+The primary plot illustrates electrical power readings sampled every minute throughout a summer and the model's forecast 60 minutes into the future. Accompanying subplots offer a closer look at predictions made 60, 30, 15, and 5 minutes into the future, showcasing the model's forecasting granularity.
+
+![Alt text](/algorithm_testing/plots/ml_forecast.png)
+
+An additional zoomed-in plot hones in on the day with the highest electrical demand found in the dataset, offering a detailed perspective of the model's performance during peak consumption.
+
+![Alt text](/algorithm_testing/plots/ml_forecast_zoomed.png)

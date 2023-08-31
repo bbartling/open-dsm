@@ -148,7 +148,7 @@ unoccupied_df = df[~df.index.day_name().isin(occupied_days)]
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
 # Scatter plot for occupied building data
-ax1.scatter(occupied_df["HourlyDryBulbTemperature"], occupied_df["total_main_kw"], color='b', label='Occupied', s=10)  # Use s=10 to make the dots smaller
+ax1.scatter(occupied_df["HourlyDryBulbTemperature"], occupied_df["total_main_kw"], color='b', label='Occupied', s=10)
 ax1.set_xlabel('Dry Bulb Temp (°F)')
 ax1.set_ylabel('Power kW')
 ax1.set_title('Occupied Building')
@@ -157,7 +157,7 @@ ax1.set_xlim(-15, 100)
 ax1.set_ylim(0, 35)
 
 # Scatter plot for unoccupied building data
-ax2.scatter(unoccupied_df["HourlyDryBulbTemperature"], unoccupied_df["total_main_kw"], color='r', label='Unoccupied', s=10)  # Use s=10 to make the dots smaller
+ax2.scatter(unoccupied_df["HourlyDryBulbTemperature"], unoccupied_df["total_main_kw"], color='r', label='Unoccupied', s=10)
 ax2.set_xlabel('Daily Dry Bulb Temp (°F)')
 ax2.set_ylabel('Power kW')
 ax2.set_title('Unoccupied Building')
@@ -165,9 +165,30 @@ ax2.legend()
 ax2.set_xlim(-15, 100)
 ax2.set_ylim(0, 35)
 
+plt.savefig(f"./plots/occ_unnoc_scatter.png", dpi=300)
+print(f"Plots saved successfully")
+
+# Create subplots for line plots
+fig, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 6))
+
+# Line plot for weather data (Dry Bulb Temperature)
+ax3.plot(weather_hourly.index, weather_hourly["HourlyDryBulbTemperature"], color='green', label='Dry Bulb Temp')
+ax3.set_xlabel('Date')
+ax3.set_ylabel('Temperature (°F)')
+ax3.set_title('Hourly Dry Bulb Temperature')
+ax3.legend()
+
+# Line plot for power data
+ax4.plot(df.index, df["total_main_kw"], color='purple', label='Power kW')
+ax4.set_xlabel('Date')
+ax4.set_ylabel('Power kW')
+ax4.set_title('Hourly Power Consumption')
+ax4.legend()
+
 plt.tight_layout()
 
-#plt.show()
-plt.savefig(f"./plots/occ_unnoc_scatter.png", dpi=300)
-print(f"occ_unnoc_scatter saved success")
+# Save plots
+plt.savefig(f"./plots/weather_power_line.png", dpi=300)
+print(f"Plots saved successfully")
 
+# plt.show()
