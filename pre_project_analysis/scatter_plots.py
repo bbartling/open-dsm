@@ -185,10 +185,33 @@ ax4.set_ylabel('Power kW')
 ax4.set_title('Hourly Power Consumption')
 ax4.legend()
 
+# Create subplots for line plots
+fig2, (ax5, ax6) = plt.subplots(2, 1, figsize=(12, 6))
+
+# Line plot for highest power data
+highest_power_day = df[df['total_main_kw'] == df['total_main_kw'].max()]
+print("highest power day: \n", highest_power_day)
+
+highest_power_day_data = df[df.index.date == highest_power_day.index.date[0]]  # Corrected line
+
+# Line plot for weather data (Dry Bulb Temperature) on the same day
+ax5.plot(highest_power_day_data.index, highest_power_day_data["HourlyDryBulbTemperature"], color='green', label='Dry Bulb Temp')
+ax5.set_xlabel('Date')
+ax5.set_ylabel('Temperature (°F)')
+ax5.set_title('Hourly Dry Bulb Temperature on Highest Power Day')
+ax5.legend()
+
+ax6.plot(highest_power_day_data.index, highest_power_day_data["total_main_kw"], color='purple', label='Power kW')
+ax6.set_xlabel('Date')
+ax6.set_ylabel('Power kW')
+ax6.set_title('Power Consumption on Highest Power Day')
+ax6.legend()
+
 plt.tight_layout()
 
+
 # Save plots
-plt.savefig(f"./plots/weather_power_line.png", dpi=300)
+plt.savefig(f"./plots/high_power_day.png", dpi=300)
 print(f"Plots saved successfully")
 
 # plt.show()

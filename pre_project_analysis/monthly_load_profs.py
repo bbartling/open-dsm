@@ -47,13 +47,20 @@ print(df)
 print()
 
 max_days = df.sort_values(by='total_main_kw', ascending=False).head(10)
-print("10 highest recorded electrical demand days and times")
-max_days
-
 max_days_weekdays = max_days[max_days.index.weekday.isin([0,1,2,3,4,5,6])]
-print("Day-of-week for peak demand hit")
 max_days_weekdays.index.day_name().value_counts()
-print(max_days_weekdays)
+print("max_days_weekdays: \n",max_days_weekdays)
+
+plt.figure(figsize=(10, 6))
+max_days_weekdays.plot(kind='bar', y='total_main_kw', legend=False)
+plt.xticks(rotation=45, ha='right')
+plt.xlabel('Date')
+plt.ylabel('total_main_kw')
+plt.title('Top 10 Max Load Days (Weekdays)')
+plt.tight_layout()
+
+plt.savefig('./plots/max_load_days.png', dpi=300)
+# plt.show()
 
 
 months = [
