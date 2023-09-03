@@ -1,4 +1,4 @@
-# Demand Side Management On A Budget!
+# Open DSM
 
 ![Alt text](/algorithm_testing/plots/algorithm_snip.png)
 
