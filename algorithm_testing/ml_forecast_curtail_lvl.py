@@ -14,8 +14,8 @@ class PowerMeterForecast:
         self.data_counter = 0
         self.mse_string = ""
         self.data_cache = pd.DataFrame(columns=["ds", "y"])
-        self.days_to_cache = 1
-        self.CACHE_LIMIT = 144 * self.days_to_cache
+        self.days_to_cache = 7 # days of data one min intervals
+        self.CACHE_LIMIT = 1440 * self.days_to_cache
         self.prediction_errors_60 = []
         self.forecasted_values_60 = []
         self.forecasted_timestamps_60 = []
@@ -41,62 +41,71 @@ class PowerMeterForecast:
         return np.array(dataX), np.array(dataY)
 
     def plot_main_results(self, axs):
-        ax1 = axs[0]
-        ax1a = ax1.twinx()  # For Curtail Level
-        ax2 = axs[1]
-        ax3 = axs[2]
-        ax4 = axs[3]  # New subplot
+            ax1 = axs[0]
+            ax1a = ax1.twinx()  # For Curtail Level
+            ax2 = axs[1]
+            ax3 = axs[2]
+            ax4 = axs[3]  # New subplot
 
-        # Current Electrical Power
-        color = "tab:blue"
-        ax1.set_ylabel("Electrical Power - kW", color=color)
-        ax1.plot(
-            self.timestamps,
-            self.actual_values,
-            color=color,
-            label="Current Electrical Power",
-        )
-        ax1.tick_params(axis="y", labelcolor=color)
+            # Current Electrical Power
+            color = "tab:blue"
+            ax1.set_ylabel("Electrical Power - kW", color=color)
+            ax1.plot(
+                self.timestamps,
+                self.actual_values,
+                color=color,
+                label="Current Electrical Power",
+            )
+            ax1.tick_params(axis="y", labelcolor=color)
 
-        # Curtail Level
-        color = "tab:red"
-        ax1a.set_ylabel("Curtail Level", color=color)
-        ax1a.plot(
-            self.timestamps,
-            self.curtail_level,
-            color=color,
-            label="Curtail Level Controlling to Future Power",
-        )
-        ax1a.tick_params(axis="y", labelcolor=color)
-        
-        # 60-minute forecast
-        ax4.set_ylabel("Forecasted Power - kW", color="tab:orange")
-        ax4.plot(
-            self.forecasted_timestamps_60,
-            self.forecasted_values_60,
-            color="tab:orange",
-            label="60 Mins Future Forecasted Electrical Power",
-        )
-        ax4.plot(
-            self.forecasted_timestamps_60,
-            self.actual_values_60,
-            color="tab:blue",
-            label="Actual 60 Mins Electrical Power",
-        )
-        ax4.legend(loc="upper left")
+            # Curtail Level
+            color = "tab:red"
+            ax1a.set_ylabel("Curtail Level", color=color)
+            ax1a.plot(
+                self.timestamps,
+                self.curtail_level,
+                color=color,
+                label="Curtail Level Controlling to Future Power",
+            )
+            ax1a.tick_params(axis="y", labelcolor=color)
+            
+            # 60-minute forecast
+            ax2.set_ylabel("Forecasted Power - kW", color="tab:orange")
+            ax2.plot(
+                self.timestamps,
+                self.forecasted_values_60,
+                color="tab:orange",
+                label="60 Mins Future Forecasted Electrical Power",
+            )
+            ax2.plot(
+                self.forecasted_timestamps_60,
+                self.actual_values_60,
+                color="tab:blue",
+                label="Actual 60 Mins Electrical Power",
+            )
+            ax2.legend(loc="upper left")
 
-        # Original ax2 and ax3 remain unchanged, but their labels and ticks should not overlap with ax1.
-        ax2.axis('off')  # Hide the second subplot since ax1 and ax1a have already shown the data
-        
-        ax3.set_ylabel("Rate of Change", color="tab:green")
-        ax3.plot(
-            self.timestamps,
-            self.power_lv_rate_of_change_list,
-            color="tab:green",
-            label="Rate of Change of Electrical Power",
-        )
-        ax3.tick_params(axis="y", labelcolor="tab:green")
-        ax3.legend(loc="upper left")
+            # Rate of Change of Electrical Power
+            ax3.set_ylabel("Rate of Change", color="tab:green")
+            ax3.plot(
+                self.timestamps,
+                self.power_lv_rate_of_change_list,
+                color="tab:green",
+                label="Rate of Change of Electrical Power",
+            )
+            ax3.tick_params(axis="y", labelcolor="tab:green")
+            ax3.legend(loc="upper left")
+            
+            # Prediction Errors 60
+            ax4.set_ylabel("Prediction Errors 60", color="tab:purple")
+            ax4.plot(
+                self.timestamps,
+                self.prediction_errors_60,
+                color="tab:purple",
+                label="Prediction Errors 60",
+            )
+            ax4.tick_params(axis="y", labelcolor="tab:purple")
+            ax4.legend(loc="upper left")
 
     def plot_zoomed_results(self, axs):
         color = "tab:blue"

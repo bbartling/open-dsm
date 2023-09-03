@@ -60,15 +60,16 @@ An additional zoomed-in plot hones in on the day with the highest electrical dem
 
 
 ### Curtail Level Attributes
-These would be examples of strategies designed by the consulting engineer and implemmented by the controls contractor or systems integrator:
-0. Allow charging for electrical vehicles or building battery systems
-1. Do nothing or Idle
-2. HVAC Thermal Zone North Setpoint Adjust Upward + 3°
-3. HVAC Thermal Zone East Setpoint Adjust Upward + 3°
-4. HVAC Thermal Zone South Setpoint Adjust Upward + 3°
-5. HVAC Thermal Zone West Setpoint Adjust Upward + 3°
-6. Set back other non-HVAC loads like lighting, close automated blinds, turn one elevator car elevator off, etc.
-7. Set back variable AHU system leaving air duct static pressure and temperature setpoints
-8. Set Chiller Capacity Limits to 50% via BACnet, override AHU valves to a maximum value of 50%, or + 3° to the chiller plant building loop (evaporator side) setpoint
+* These could be examples of strategies designed by the consulting engineer and implemmented by the controls contractor or systems integrator for control strategy at designated `curtail level`: 
+
+**0.** - Allow charging for electrical vehicles or building battery systems
+**1.** - Do nothing or Idle
+**2.** - HVAC Thermal Zone North Setpoint Adjust Upward + 3°
+**3.** - HVAC Thermal Zone East Setpoint Adjust Upward + 3°
+**4.** - HVAC Thermal Zone South Setpoint Adjust Upward + 3°
+**5.** - HVAC Thermal Zone West Setpoint Adjust Upward + 3°
+**6.** - Set back other non-HVAC loads like lighting, close automated blinds, turn one elevator car elevator off, etc.
+**7.** - Set back variable AHU system leaving air duct static pressure and temperature setpoints
+**8.** - Set Chiller Capacity Limits to 50% via BACnet, override AHU valves to a maximum value of 50%, or + 3° to the chiller plant building loop (evaporator side) setpoint
 
 
