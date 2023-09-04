@@ -1,11 +1,16 @@
-Pre-project analysis of electrical load profiles is crucial when planning any electrical project, whether it's for a new building, a renewable energy installation, a grid upgrade, or any other application that interacts with the electricity grid. The analysis helps in understanding the energy consumption patterns, peak demands, and the overall behavior of loads. This assists in optimizing the energy management, designing infrastructure, and planning for potential expansions or integrations. This directory contains Python scripts to create plots to help put together a plan in the DSM strategy. The plots would help deptict a whole building electrical power setpoint to maintain and also a critical rate of change for an algorithm that would run at the building to detect a spike in electricity that can occur during building startup or other scenorio's.
+# Pre-project Analyst Work
+
+Thorough analysis of electrical load profiles is a pivotal step when embarking on any electrical project, be it for a new construction, a renewable energy setup, a grid enhancement, or any venture linked to the electricity grid. This analysis serves as the cornerstone for comprehending energy consumption patterns, identifying peak demands, and gaining insights into load behaviors. Such understanding proves instrumental in optimizing energy management strategies, devising infrastructure layouts, and laying groundwork for potential expansions or integrations. Within this repository, you'll find Python scripts tailored to generate plots that play a pivotal role in shaping the Demand Side Management (DSM) strategy. These plots not only assist in visualizing the entire building's electrical power setpoint to be maintained but also establish a critical rate of change. This rate forms the foundation of an algorithm deployed within the building, aimed at detecting abrupt electricity spikes that may occur during scenarios like building startups or other occurrences.
 
 
 This directory has some scripts to assist in creating line plots of power and weather:
 ![Alt text](/pre_project_analysis/plots/weather_power_line.png)
 
-Highest demand day found in the dataset with `Highest Rate of Change` per unit of time:
+Highest demand day with weather:
 ![Alt text](/pre_project_analysis/plots/high_power_day.png)
+
+Highest demand day found in the dataset and `Highest Rate of Change` per unit of time on minute level data:
+![Alt text](/pre_project_analysis/plots/high_power_day_with_rate_of_change.png)
 
 The 10 highest max load dates and times found in the dataset:
 ![Alt text](/pre_project_analysis/plots/max_load_days.png)
