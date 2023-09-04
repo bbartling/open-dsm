@@ -11,7 +11,7 @@ This repository is dedicated to providing an open-source Demand Side Management 
 
 * **Power meter integration** which is a prerequisite for the Linux device's algorithm to forecast demand is to have the necessary setup. An accessible alternative, particularly user-friendly for engineers and scientists, could involve using an [eGauge](https://www.egauge.net/commercial-energy-monitor/) device. This device offers a straightforward setup through a graphical user interface (GUI), and it could potentially prove simpler than attempting to integrate the building's power meter (assuming compatibility). The eGauge device provides options for effortless configuration using Modbus, BACnet, or REST API, alongside a GUI for data visualization that includes customizable energy accounting features. Moreover, it has the capacity to store up to a year's worth of data. Notably, the manufacturer offers a service that allows secure remote access to the eGauge device over the internet. This service enables data retrieval through a dashboard and even permits configuration adjustments if needed.
 
-* **On-going monitoring** Consistently engage with the building owner regarding any concerns related to DSM solution risks, including occupant comfort complaints, noise, and IAQ. This service could potentially be integrated into ongoing monitoring or building commissioning (MBx) initiatives. By incorporating other engineering consulting services, it becomes possible to ensure that as demand charges are optimized for the building, essential factors such as healthy IAQ, efficient operation of mechanical systems, and overall safety and effectiveness of the building are maintained.
+* **On-going monitoring** consistently engage with the building owner (typical consulting engineer practices) regarding any concerns related to DSM solution risks, including occupant comfort complaints, noise, and IAQ. This service could potentially be integrated into ongoing monitoring or building commissioning (MBx) initiatives. By incorporating other engineering consulting services, it becomes possible to ensure that as demand charges are optimized for the building, essential factors such as healthy IAQ, efficient operation of mechanical systems, and overall safety and effectiveness of the building are maintained.
 
 The DSM solution can help to reduce energy consumption and peak demand, which can save money for building owners and operators. It can also help to improve the reliability of the electrical grid.
 
@@ -30,4 +30,25 @@ The DSM solution can help to reduce energy consumption and peak demand, which ca
 **Repo is still in beta or active development!**
 
 **More comming soon for the edge device app!**
+
+## Author
+
+[linkedin](https://www.linkedin.com/in/ben-bartling-510a0961/)
+
+## Legal Stuff
+
+**Disclaimer:** The operation and implementation of this application are the sole responsibility of the person who chooses to set it up. The author and affiliates of this app are not liable for any consequences or incidents that may arise from the use of this application. It is essential to acknowledge that any negative outcomes, including but not limited to equipment damage, indoor air quality issues, or personal injuries, are the responsibility of the person or firm who deploys and operates the application within a building. Users are advised to thoroughly evaluate and assess the application's suitability for their specific use case and take necessary precautions to ensure safe and effective utilization.
+
+## Licence
+
+【MIT License】
+
+Copyright 2023 Ben Bartling
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 
