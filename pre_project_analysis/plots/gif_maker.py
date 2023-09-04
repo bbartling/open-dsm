@@ -19,4 +19,4 @@ for month in months:
         print(f"Image not found for {month}")
 
 # Save the frames as a GIF with looping and faster duration
-frames[0].save('yearly_animation.gif', save_all=True, append_images=frames[1:], loop=0, duration=50)
+frames[0].save('yearly_animation_slow.gif', save_all=True, append_images=frames[1:], loop=0, duration=500)
