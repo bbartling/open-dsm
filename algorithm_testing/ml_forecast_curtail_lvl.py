@@ -42,10 +42,10 @@ class PowerMeterForecast:
 
     def plot_main_results(self, axs):
             ax1 = axs[0]
-            ax1a = ax1.twinx()  # For Curtail Level
+            ax1a = ax1.twinx()
             ax2 = axs[1]
             ax3 = axs[2]
-            ax4 = axs[3]  # New subplot
+            ax4 = axs[3]
 
             # Current Electrical Power
             color = "tab:blue"
@@ -60,49 +60,49 @@ class PowerMeterForecast:
 
             # Curtail Level
             color = "tab:red"
-            ax1a.set_ylabel("Curtail Level", color=color)
+            ax1a.set_ylabel("Curtailment Level", color=color)
             ax1a.plot(
                 self.timestamps,
                 self.curtail_level,
                 color=color,
-                label="Curtail Level Controlling to Future Power",
+                label="Curtail Signal Controlling to Future Power",
             )
             ax1a.tick_params(axis="y", labelcolor=color)
             
-            # 60-minute forecast
-            ax2.set_ylabel("Forecasted Power - kW", color="tab:orange")
+            # plot forecasted power to actual power 60 minutes into the future
+            ax2.set_ylabel("Electrical Power - kW", color="tab:orange")
             ax2.plot(
                 self.timestamps,
                 self.forecasted_values_60,
                 color="tab:orange",
-                label="60 Mins Future Forecasted Electrical Power",
+                label="Forecasted 60 Mins Future Electrical Power",
             )
             ax2.plot(
                 self.forecasted_timestamps_60,
                 self.actual_values_60,
                 color="tab:blue",
-                label="Actual 60 Mins Electrical Power",
+                label="Actual 60 Mins Future Electrical Power",
             )
             ax2.legend(loc="upper left")
 
-            # Rate of Change of Electrical Power
+            # Calculate rate of change on current power to predict a spike
             ax3.set_ylabel("Rate of Change", color="tab:green")
             ax3.plot(
                 self.timestamps,
                 self.power_lv_rate_of_change_list,
                 color="tab:green",
-                label="Rate of Change of Electrical Power",
+                label="Positive only rate-of-change power / unit of time",
             )
             ax3.tick_params(axis="y", labelcolor="tab:green")
             ax3.legend(loc="upper left")
             
-            # Prediction Errors 60
-            ax4.set_ylabel("Prediction Errors 60", color="tab:purple")
+            # Mean squarred error of predicted and actual future power
+            ax4.set_ylabel("MSE of predicted Vs actual future power", color="tab:purple")
             ax4.plot(
                 self.timestamps,
                 self.prediction_errors_60,
                 color="tab:purple",
-                label="Prediction Errors 60",
+                label="Mean Squared Error",
             )
             ax4.tick_params(axis="y", labelcolor="tab:purple")
             ax4.legend(loc="upper left")
@@ -132,7 +132,7 @@ class PowerMeterForecast:
         print(f"Plot saved to {filename}")
 
     def run_and_save_main_plot(self):
-        fig, axs = plt.subplots(nrows=4, figsize=(15, 20))  # Updated subplot count
+        fig, axs = plt.subplots(nrows=4, figsize=(15, 20))
         self.plot_main_results(axs)
         filename = f"ml_forecast"
         self.save_plot(filename)
