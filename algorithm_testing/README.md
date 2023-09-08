@@ -1,73 +1,67 @@
-# algorithm
+# Demand Side Management System
 
-This code deploys a short term one hour time-series forecasting approach for predicting electrical power consumption using a machine learning-based methodology. The multi-output forecasting model is trained on historical data and aims to forecast 60 future values based on input features derived from the time series.
+A comprehensive system that integrates real-time power meter readings with predictive analytics to manage and optimize power consumption.
 
-The model operates by using the last 60 readings from the time series to predict the next 60-minute interval of electrical power. This ensures the model remains adaptive and responsive to the immediate past while predicting the near future. The model training aspect operates in this fashion below where the electrical meter reading is read every minute and a new model is trained every day to accomodate any changes in how the building utilizes electricity throught different weather patterns and or changes to the automation system which would effect power usage such as equipment scheduling versus a fixed model that does not accomodate change.
+## Overview
 
+### Data Collection:
 
-```mermaid
-graph TD
-    subgraph Loop
-        Start --> GetPowerMeterReading
-        GetPowerMeterReading --> CacheData
-        CacheData --> CheckIfEnoughData
-        CheckIfEnoughData --> Action
-        Action -->|Enough Data to Train Model?| DataCacheAmountCheck
-        DataCacheAmountCheck -->|Yes| TrainForecastModel
-        TrainForecastModel -->|No| DayExpiredCheck
-        DayExpiredCheck -->|Yes| TrainForecastModel
-        TrainForecastModel --> LoopEnd
-        DayExpiredCheck -->|No<br/>Continusouly forecast out<br/>60 minutes into the future<br/>electrical power on<br/>1 minute intervals and<br/>Set Curtail Level| GetPowerMeterReading
-        DataCacheAmountCheck -->|No| GetPowerMeterReading
-    end
-```
+- The power meter is read every 60 seconds.
+- The reading, termed `current_power`, is cached for subsequent analytics.
 
-The primary objective of this prediction mechanism is to actively manage or "curtail" adjustable electrical loads within a building. This predictive capability allows the system to make informed decisions and take proactive measures, ensuring the building aligns with Demand Side Management (DSM) goals.
+### Cache Management:
 
-```mermaid
-graph TD
-    subgraph Continuous Loop 
-        PowerMeterReadings --> |Lookup historical<br/>power meter readings<br/>from data cache<br/>and calculate| PowerRateOfChange
-        PowerRateOfChange --> |Building Startup?| SpikeDetected
-        SpikeDetected -->|Yes<br/>Capacity Limit Chiller<br/>For One Hour| SetCurtailLevelTo_8
-        SetCurtailLevelTo_8 --> OneHourPassed
-        OneHourPassed -->|Yes| CheckPowerAfterOneHour
-        CheckPowerAfterOneHour -->|Greater Than <br/>Building Setpoint| SetCurtailLevelTo_4
-        CheckPowerAfterOneHour -->|Not Greater<br/>Building Setpoint| SetCurtailLevelTo_1
-        SetCurtailLevelTo_1 --> PowerMeterReadings
-        SetCurtailLevelTo_4 --> PowerMeterReadings
-        OneHourPassed -->|No| SpikeDetected
+- Maintains the most recent power readings.
+- Oldest readings are removed to comply with the `CACHE_LIMIT`.
 
-        SpikeDetected -->|No| CheckFuturePowerValue
-        CheckFuturePowerValue --> GreaterThanBuildingSetpoint
-        GreaterThanBuildingSetpoint --> |Yes| CurtailLevelPlus_1
-        GreaterThanBuildingSetpoint --> |No| CurtailLevelMinus_1
-        CurtailLevelPlus_1 --> PowerMeterReadings
-        CurtailLevelMinus_1 --> PowerMeterReadings
-    end
-```
- 
-### Algorithm Testing on Historical Data with `ml_forecast_curtail_lvl.py`
-The visualization below represents historical data sourced from the process_raw_data directory. This data consists of one-minute sampled readings from an eGauge at a small commercial building in the upper Midwest USA equipped with a VAV air handling unit system and an air-cooled chiller.
+### Demand Response:
 
-The primary plot illustrates electrical power readings sampled every minute throughout a summer and the model's forecast 60 minutes into the future. Accompanying subplots offer a closer look at predictions made 60, 30, 15, and 5 minutes into the future, showcasing the model's forecasting granularity.
+- Every 5 minutes, the system evaluates and adjusts the power consumption to meet set objectives.
 
-![Alt text](/algorithm_testing/plots/ml_forecast.png)
+### Rate of Change Analytics:
 
-An additional zoomed-in plot hones in on the day with the highest electrical demand found in the dataset, offering a detailed perspective of the model's performance during peak consumption.
+- After each power reading, the system calculates the rate of power change to detect spikes.
+- A high rate indicates a surge in demand, prompting immediate action to reduce consumption.
 
-![Alt text](/algorithm_testing/plots/ml_forecast_zoomed.png)
+### Predictive Modeling:
 
+- Model is retrained daily using a `RandomForestRegressor`.
+- Forecast predicts power consumption 60 minutes into the future.
 
-### Curtail Level Signal Attributes 0 - 8
-These could be examples of strategies designed by the consulting engineer and implemented by the controls contractor or systems integrator for control strategy at designated `curtail level`:
+### Proactive Adjustments Based on Forecasts:
 
-0. Allow charging for electrical vehicles or building battery systems
-1. Do nothing or Idle
-2. HVAC Thermal Zone North Setpoint Adjust Upward + 3°
-3. HVAC Thermal Zone East Setpoint Adjust Upward + 3°
-4. HVAC Thermal Zone South Setpoint Adjust Upward + 3°
-5. HVAC Thermal Zone West Setpoint Adjust Upward + 3°
-6. Set back other non-HVAC loads like lighting, close automated blinds, turn one elevator car elevator off, etc.
-7. Set back variable AHU system leaving air duct static pressure and temperature setpoints
-8. Set Chiller Capacity Limits to 50% via BACnet, override AHU valves to a maximum value of 50%, or + 3° to the chiller plant building loop (evaporator side) setpoint
+- System uses the greater value between the current power reading and the 60-minute forecast to make decisions.
+- Adjustments are made to ensure that power consumption remains within desired bounds.
+
+## Workflow
+
+### Minute 0:
+
+- Power meter reading.
+- Cache updated.
+- Rate of change calculated.
+- If rate of change exceeds set threshold, power consumption is immediately reduced.
+
+### Minute 1-4:
+
+- Power meter reading.
+- Cache and rate of change updated.
+- No other major action unless there's a detected spike.
+
+### Minute 5:
+
+- Power meter reading.
+- Cache and rate of change updated.
+- Adjusts power consumption based on average of recent readings.
+- Retrains the model if a day has passed since the last training.
+- Makes a 60-minute forecast.
+- Decides on power adjustment based on forecast.
+
+### Minute 6 and onwards:
+
+- Loop repeats, with a model retrain only occurring once every 24 hours.
+
+## Dependencies
+
+- `pandas`: For efficient data handling and operations.
+- `sklearn`: For the `RandomForestRegressor` and other potential ML tools.

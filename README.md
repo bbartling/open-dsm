@@ -1,6 +1,6 @@
 # Open DSM
 
-![Alt text](/algorithm_testing/plots/algorithm_snip.png)
+![Alt text](/time_series_testing/plots/algorithm_snip.png)
 
 
 This repository is dedicated to providing an open-source Demand Side Management (DSM) solution finely tuned for the specific requirements of consulting engineers. It empowers them to implement ongoing electrical load management strategies tailored for typical commercial buildings. This DSM solution holds immense potential for consulting engineers looking to aid clients in curtailing energy usage and mitigating peak demand. Moreover, it serves as a valuable resource for building proprietors and operators aiming to enhance cost savings and the dependability of energy consumption. For consulting engineers eager to actively engage in fieldwork, this free and open-source tool offers an ideal opportunity. It places them at the forefront, taking on responsibilities that encompass:
