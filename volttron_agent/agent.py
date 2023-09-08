@@ -13,10 +13,18 @@ class DemandSideManagementAgent(Agent):
     
     def __init__(self, config_path, **kwargs):
         super(DemandSideManagementAgent, self).__init__(**kwargs)
-        # You can read configuration using the config_path if needed
+        self.config = config_path
         self.setup_variables()
-        
+
     def setup_variables(self):
+        self.power_meter = PowerMeter(**self.config['power_meter'])
+        self.lighting_system = LightingSystem(**self.config['lighting_system'])
+        self.water_system_heat = WaterPumpingSystem(**self.config['water_pumping_system_heat'])
+        self.water_system_cool = WaterPumpingSystem(**self.config['water_pumping_system_cool'])
+        
+        # Initialize multiple air handling systems
+        self.air_handling_systems = [AirHandlingSystem(**config) for config in self.config['air_handling_systems']]
+        
         self.data_cache = pd.DataFrame(columns=["ds", "y"])
         self.power_setpoint = 1000
         self.power_meter = PowerMeter()

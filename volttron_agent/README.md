@@ -1,6 +1,6 @@
 # Demand Side Management System
 
-A comprehensive system that integrates real-time power meter readings with predictive analytics to manage and optimize power consumption.
+A comprehensive `PNNL VOLTTRON Agent` that integrates real-time power meter readings with predictive analytics to manage and optimize power consumption.
 
 ## Overview
 
