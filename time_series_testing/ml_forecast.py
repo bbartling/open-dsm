@@ -12,18 +12,21 @@ class PowerMeterForecast:
         self.csv_data["Date"] = pd.to_datetime(self.csv_data["Date"])
         self.data_counter = 0
         self.data_cache = pd.DataFrame(columns=["ds", "y"])
-        self.days_to_cache = 7  # days of data one minute intervals
-        self.CACHE_LIMIT = 1440 * self.days_to_cache
+
+        self.power_lv_rate_of_change_values = []
         self.prediction_errors_60 = []
         self.forecasted_values_60 = []
         self.forecasted_timestamps_60 = []
         self.actual_values_60 = []
         self.actual_values = []
         self.timestamps = []
-        self.power_lv_rate_of_change_list = []
-        self.current_power_last_hour_avg_rate_of_change = None
+
+        self.current_power_last_15mins_avg_rate_of_change = None
         self.current_power_lv_rate_of_change = None
-        self.SPIKE_THRESHOLD_POWER_MINUTE = 20
+        
+        self.DAYS_TO_CACHE = 7  # days of data one minute intervals
+        self.CACHE_LIMIT = 1440 * self.DAYS_TO_CACHE
+        self.SPIKE_THRESHOLD_POWER_PER_MINUTE = 20
         self.BUILDING_POWER_SETPOINT = 20
 
     def create_dataset(self, y, input_window=60, forecast_horizon=1):
@@ -32,6 +35,7 @@ class PowerMeterForecast:
             dataX.append(y[i: (i + input_window)])
             dataY.append(y[i + input_window: i + input_window + forecast_horizon])
         return np.array(dataX), np.array(dataY)
+
     
     def plot_main_results(self, axs):
         ax1 = axs[0]
@@ -42,51 +46,35 @@ class PowerMeterForecast:
         # Current Electrical Power
         color = "tab:blue"
         ax1.set_ylabel("Electrical Power - kW", color=color)
-        ax1.plot(
-            self.timestamps,
-            self.actual_values,
-            color=color,
-            label="Current Electrical Power",
-        )
+        print("timestamps right before plotting:", len(self.timestamps))
+        print("actual_values right before plotting:", len(self.actual_values))
+        assert len(self.timestamps) == len(self.actual_values)  # Add this assertion
+        ax1.plot(self.timestamps, self.actual_values, color=color, label="Current Electrical Power")
         ax1.tick_params(axis="y", labelcolor=color)
 
         # plot forecasted power to actual power 60 minutes into the future
         ax2.set_ylabel("Electrical Power - kW", color="tab:orange")
-        ax2.plot(
-            self.timestamps,
-            self.forecasted_values_60,
-            color="tab:orange",
-            label="Forecasted 60 Mins Future Electrical Power",
-        )
-        ax2.plot(
-            self.forecasted_timestamps_60,
-            self.actual_values_60,
-            color="tab:blue",
-            label="Actual 60 Mins Future Electrical Power",
-        )
+        assert len(self.timestamps) == len(self.forecasted_values_60)  # Add this assertion
+        ax2.plot(self.timestamps, self.forecasted_values_60, color="tab:orange", label="Forecasted 60 Mins Future Electrical Power")
+
+        assert len(self.forecasted_timestamps_60) == len(self.actual_values_60)  # Add this assertion
+        ax2.plot(self.forecasted_timestamps_60, self.actual_values_60, color="tab:blue", label="Actual 60 Mins Future Electrical Power")
         ax2.legend(loc="upper left")
 
         # Calculate rate of change on current power to predict a spike
         ax3.set_ylabel("Rate of Change", color="tab:green")
-        ax3.plot(
-            self.timestamps,
-            self.power_lv_rate_of_change_list,
-            color="tab:green",
-            label="Positive only rate-of-change power / unit of time",
-        )
+        assert len(self.timestamps) == len(self.power_lv_rate_of_change_values)  # Add this assertion
+        ax3.plot(self.timestamps, self.power_lv_rate_of_change_values, color="tab:green", label="Positive only rate-of-change power / unit of time")
         ax3.tick_params(axis="y", labelcolor="tab:green")
         ax3.legend(loc="upper left")
 
         # Mean squared error of predicted and actual future power
         ax4.set_ylabel("MSE of predicted Vs actual future power", color="tab:purple")
-        ax4.plot(
-            self.timestamps,
-            self.prediction_errors_60,
-            color="tab:purple",
-            label="Mean Squared Error",
-        )
+        assert len(self.timestamps) == len(self.prediction_errors_60)  # Add this assertion
+        ax4.plot(self.timestamps, self.prediction_errors_60, color="tab:purple", label="Mean Squared Error")
         ax4.tick_params(axis="y", labelcolor="tab:purple")
         ax4.legend(loc="upper left")
+
 
     def plot_zoomed_results(self, axs):
         color = "tab:blue"
@@ -153,7 +141,7 @@ class PowerMeterForecast:
             "Actual_Values_60": self.actual_values_60,
             "Forecasted_Values_60": self.forecasted_values_60,
             "Prediction_Errors_60": self.prediction_errors_60,
-            "power_rate_change": self.power_lv_rate_of_change_list,
+            "power_rate_change": self.power_lv_rate_of_change_values,
         }
 
         df = pd.DataFrame(data)
@@ -161,22 +149,39 @@ class PowerMeterForecast:
         print(f"Data saved to {filename}")
 
     def calc_power_rate_of_change(self, current_value):
-        if len(self.actual_values) > 1:
-            current_rate_of_change = current_value - self.actual_values[-2]
-            # Exclude negative rate of change
-            current_rate_of_change = max(0, current_rate_of_change)
-        else:
-            current_rate_of_change = 0
+        # Append the current value to actual_values
+        self.actual_values.append(current_value)
 
-        if len(self.actual_values) > 60:
-            last_hour_values = self.actual_values[-61:-1]
-            avg_rate_of_change = (last_hour_values[-1] - last_hour_values[0]) / 60.0
-            # Exclude negative average rate of change
-            avg_rate_of_change = max(0, avg_rate_of_change)
+        # Ensure the list doesn't exceed the window size
+        while len(self.actual_values) > self.window_size:
+            self.actual_values.pop(0)
+            
+        # Calculate the gradient for the whole data (or you can 
+        # just compute for the recent values for efficiency)
+        gradient = np.diff(self.actual_values)
+
+        # Current rate of change is the last value in the gradient
+        current_rate_of_change = gradient[-1] if len(gradient) > 0 else 0
+
+        # Average rate of change over the last 15 minutes
+        if len(self.actual_values) > 15:
+            avg_rate_of_change = (gradient[-1] - gradient[-15]) / 15.0
         else:
             avg_rate_of_change = current_rate_of_change
 
-        self.current_power_last_hour_avg = avg_rate_of_change
+        self.current_power_last_15mins_avg = avg_rate_of_change
+        
+        return current_rate_of_change
+        
+    # check for peak or valley
+    def check_percentiles(self, current_value):
+        percentile_30 = np.percentile(self.actual_values, 30)
+        percentile_90 = np.percentile(self.actual_values, 90)
+
+        is_below_30th = current_value < percentile_30
+        is_above_90th = current_value > percentile_90
+
+        return is_below_30th, is_above_90th
 
 
     def run_forecasting_cycle(self):
@@ -190,9 +195,6 @@ class PowerMeterForecast:
 
             current_time = self.data_cache["ds"].iloc[-1]
             current_value = self.data_cache["y"].iloc[-1]
-
-            # attempts to detect a spike, like equipment startup
-            self.calc_power_rate_of_change(current_value)
 
             y = self.data_cache["y"].values
 
@@ -211,6 +213,9 @@ class PowerMeterForecast:
                 print(f"model hasn't trained yet {current_time}")
                 continue  # Keep looping the Model hasn't been trained yet
 
+            # attempts to detect a spike, like equipment startup
+            current_rate_of_change = self.calc_power_rate_of_change(current_value)
+
             forecasted_value_60 = model.predict(y[-60:].reshape(1, -1))[0]
 
             future_time = current_time + pd.Timedelta(minutes=60)
@@ -228,25 +233,52 @@ class PowerMeterForecast:
                 ].empty
                 else 0  # default value
             )
+            
+            is_valley, is_peak = self.check_percentiles(current_value)
+            if is_valley:
+                print("Valley!")
+            elif is_peak:
+                print("Peak!")
+                
+            current_error = (forecasted_value_60 - actual_value_60) ** 2
 
-            # (Optional) Spike detection and capacity limit logic can be added here if needed.
-
-            self.actual_values.append(current_value)
+            self.power_lv_rate_of_change_values.append(current_rate_of_change)
+            
             self.actual_values_60.append(actual_value_60)
             self.forecasted_values_60.append(forecasted_value_60)
-            self.prediction_errors_60.append(
-                (forecasted_value_60 - actual_value_60) ** 2
-            )
+            self.prediction_errors_60.append(current_error)
             self.timestamps.append(current_time)
             self.forecasted_timestamps_60.append(future_time)
+            
+            '''
+            self.actual_values.append(current_value) gets appended in the 
+            calc_power_rate_of_change method
+            '''
 
-            print(f"current_time {current_time} - {current_value}")
-            print(f"future_time {future_time} - {actual_value_60}")
+            print(f"{current_time} - {current_value} - {current_rate_of_change}")
+            print(f"{future_time} - {actual_value_60} - {forecasted_value_60} - {current_error}")
+            print()
+
+            print(len(self.timestamps))
+            print(len(self.forecasted_values_60))
+            print(len(self.forecasted_timestamps_60))
+            print(len(self.actual_values_60))
+            print(len(self.power_lv_rate_of_change_values))
+            print(len(self.prediction_errors_60))
             print()
 
         mse_60 = mean_squared_error(self.forecasted_values_60, self.actual_values_60)
         self.mse_string = f"MSE: {mse_60}"
         print(self.mse_string)
+        print()
+
+        print("timestamps: ",len(self.timestamps))
+        print("forecasted_values_60: ",len(self.forecasted_values_60))
+        print("forecasted_timestamps_60: ",len(self.forecasted_timestamps_60))
+        print("actual_values_60: ",len(self.actual_values_60))
+        print("power_lv_rate_of_change_values: ",len(self.power_lv_rate_of_change_values))
+        print("prediction_errors_60: ",len(self.prediction_errors_60))
+        print()
 
 # Execution time tracking
 st = time.time()
