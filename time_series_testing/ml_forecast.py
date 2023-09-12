@@ -23,7 +23,7 @@ class PowerMeterForecast:
 
         self.current_power_last_15mins_avg_rate_of_change = None
         self.current_power_lv_rate_of_change = None
-        
+
         self.DAYS_TO_CACHE = 7  # days of data one minute intervals
         self.CACHE_LIMIT = 1440 * self.DAYS_TO_CACHE
         self.SPIKE_THRESHOLD_POWER_PER_MINUTE = 20
@@ -32,11 +32,10 @@ class PowerMeterForecast:
     def create_dataset(self, y, input_window=60, forecast_horizon=1):
         dataX, dataY = [], []
         for i in range(len(y) - input_window - forecast_horizon + 1):
-            dataX.append(y[i: (i + input_window)])
-            dataY.append(y[i + input_window: i + input_window + forecast_horizon])
+            dataX.append(y[i : (i + input_window)])
+            dataY.append(y[i + input_window : i + input_window + forecast_horizon])
         return np.array(dataX), np.array(dataY)
 
-    
     def plot_main_results(self, axs):
         ax1 = axs[0]
         ax2 = axs[1]
@@ -48,33 +47,69 @@ class PowerMeterForecast:
         ax1.set_ylabel("Electrical Power - kW", color=color)
         print("timestamps right before plotting:", len(self.timestamps))
         print("actual_values right before plotting:", len(self.actual_values))
-        assert len(self.timestamps) == len(self.actual_values)  # Add this assertion
-        ax1.plot(self.timestamps, self.actual_values, color=color, label="Current Electrical Power")
+
+        ax1.plot(
+            self.timestamps,
+            self.actual_values,
+            color=color,
+            label="Current Electrical Power",
+        )
         ax1.tick_params(axis="y", labelcolor=color)
+
+        # Add horizontal lines for 90th and 60th percentiles
+        percentile_90 = np.percentile(self.actual_values, 90)
+        percentile_60 = np.percentile(self.actual_values, 60)
+        ax1.axhline(percentile_90, color="red", linestyle="--", label="90th Percentile")
+        ax1.axhline(
+            percentile_60, color="green", linestyle="--", label="60th Percentile"
+        )
+
+        # Create a legend for ax1 that includes the horizontal lines
+        ax1.legend(
+            loc="upper left",
+            labels=["Current Electrical Power", "90th Percentile", "60th Percentile"],
+        )
+
+        title = f"{self.mse_string}_{self.DAYS_TO_CACHE}_days_data"
+        ax1.set_title(title)
 
         # plot forecasted power to actual power 60 minutes into the future
         ax2.set_ylabel("Electrical Power - kW", color="tab:orange")
-        assert len(self.timestamps) == len(self.forecasted_values_60)  # Add this assertion
-        ax2.plot(self.timestamps, self.forecasted_values_60, color="tab:orange", label="Forecasted 60 Mins Future Electrical Power")
-
-        assert len(self.forecasted_timestamps_60) == len(self.actual_values_60)  # Add this assertion
-        ax2.plot(self.forecasted_timestamps_60, self.actual_values_60, color="tab:blue", label="Actual 60 Mins Future Electrical Power")
+        ax2.plot(
+            self.timestamps,
+            self.forecasted_values_60,
+            color="tab:orange",
+            label="Forecasted 60 Mins Future Electrical Power",
+        )
+        ax2.plot(
+            self.forecasted_timestamps_60,
+            self.actual_values_60,
+            color="tab:blue",
+            label="Actual 60 Mins Future Electrical Power",
+        )
         ax2.legend(loc="upper left")
 
         # Calculate rate of change on current power to predict a spike
         ax3.set_ylabel("Rate of Change", color="tab:green")
-        assert len(self.timestamps) == len(self.power_lv_rate_of_change_values)  # Add this assertion
-        ax3.plot(self.timestamps, self.power_lv_rate_of_change_values, color="tab:green", label="Positive only rate-of-change power / unit of time")
+        ax3.plot(
+            self.timestamps,
+            self.power_lv_rate_of_change_values,
+            color="tab:green",
+            label="Positive only rate-of-change power / unit of time",
+        )
         ax3.tick_params(axis="y", labelcolor="tab:green")
         ax3.legend(loc="upper left")
 
         # Mean squared error of predicted and actual future power
         ax4.set_ylabel("MSE of predicted Vs actual future power", color="tab:purple")
-        assert len(self.timestamps) == len(self.prediction_errors_60)  # Add this assertion
-        ax4.plot(self.timestamps, self.prediction_errors_60, color="tab:purple", label="Mean Squared Error")
+        ax4.plot(
+            self.timestamps,
+            self.prediction_errors_60,
+            color="tab:purple",
+            label="Mean Squared Error",
+        )
         ax4.tick_params(axis="y", labelcolor="tab:purple")
         ax4.legend(loc="upper left")
-
 
     def plot_zoomed_results(self, axs):
         color = "tab:blue"
@@ -103,13 +138,13 @@ class PowerMeterForecast:
     def run_and_save_main_plot(self):
         fig, axs = plt.subplots(nrows=4, figsize=(15, 20))
         self.plot_main_results(axs)
-        filename = f"ml_forecast"
+        filename = f"results"
         self.save_plot(filename)
 
     def run_and_save_zoomed_plot(self):
         fig, axs = plt.subplots(nrows=4, figsize=(15, 20))  # Updated subplot count
         self.plot_zoomed_results(axs)
-        filename = f"ml_forecast_zoomed"
+        filename = f"results_zoomed"
         self.save_plot(filename)
 
     def poll_sensor_data(self):
@@ -131,7 +166,7 @@ class PowerMeterForecast:
         )
 
         if len(self.data_cache) > self.CACHE_LIMIT:
-            self.data_cache = self.data_cache.iloc[-self.CACHE_LIMIT:]
+            self.data_cache = self.data_cache.iloc[-self.CACHE_LIMIT :]
         return True
 
     def save_data_to_csv(self, filename):
@@ -148,19 +183,15 @@ class PowerMeterForecast:
         df.to_csv(filename, index=False)
         print(f"Data saved to {filename}")
 
-    def calc_power_rate_of_change(self, current_value):
-        # Append the current value to actual_values
-        self.actual_values.append(current_value)
+    def calc_power_rate_of_change(self, current_value, model_trained):
+        """
+        calculate electric power rate of change per unit of time
+        from cached data. Used to detect if a spike has occurred.
+        """
+        if model_trained:
+            self.actual_values.append(current_value)
 
-        # Ensure the list doesn't exceed the window size
-        while len(self.actual_values) > self.window_size:
-            self.actual_values.pop(0)
-            
-        # Calculate the gradient for the whole data (or you can 
-        # just compute for the recent values for efficiency)
         gradient = np.diff(self.actual_values)
-
-        # Current rate of change is the last value in the gradient
         current_rate_of_change = gradient[-1] if len(gradient) > 0 else 0
 
         # Average rate of change over the last 15 minutes
@@ -170,9 +201,8 @@ class PowerMeterForecast:
             avg_rate_of_change = current_rate_of_change
 
         self.current_power_last_15mins_avg = avg_rate_of_change
-        
         return current_rate_of_change
-        
+
     # check for peak or valley
     def check_percentiles(self, current_value):
         percentile_30 = np.percentile(self.actual_values, 30)
@@ -183,10 +213,10 @@ class PowerMeterForecast:
 
         return is_below_30th, is_above_90th
 
-
     def run_forecasting_cycle(self):
         model = None
         last_train_time = None
+        model_trained = False  # Add this flag
 
         while True:
             data_available = self.fetch_and_store_data()
@@ -198,7 +228,6 @@ class PowerMeterForecast:
 
             y = self.data_cache["y"].values
 
-            # Only train if there are more than 60+1 data points in data_cache
             if len(y) > 61 and (
                 last_train_time is None
                 or (current_time - last_train_time) >= pd.Timedelta(days=1)
@@ -208,13 +237,16 @@ class PowerMeterForecast:
                 model = RandomForestRegressor(n_estimators=100, random_state=42)
                 model.fit(X, Y.ravel())
                 last_train_time = current_time
+                model_trained = True  # Set the flag when the model is trained
 
-            if model is None:
+            if not model_trained:
                 print(f"model hasn't trained yet {current_time}")
-                continue  # Keep looping the Model hasn't been trained yet
+                continue  # Skip the rest of the loop if the model isn't trained
 
             # attempts to detect a spike, like equipment startup
-            current_rate_of_change = self.calc_power_rate_of_change(current_value)
+            current_rate_of_change = self.calc_power_rate_of_change(
+                current_value, model_trained
+            )
 
             forecasted_value_60 = model.predict(y[-60:].reshape(1, -1))[0]
 
@@ -233,30 +265,32 @@ class PowerMeterForecast:
                 ].empty
                 else 0  # default value
             )
-            
+
             is_valley, is_peak = self.check_percentiles(current_value)
             if is_valley:
                 print("Valley!")
             elif is_peak:
                 print("Peak!")
-                
+
             current_error = (forecasted_value_60 - actual_value_60) ** 2
 
             self.power_lv_rate_of_change_values.append(current_rate_of_change)
-            
+
             self.actual_values_60.append(actual_value_60)
             self.forecasted_values_60.append(forecasted_value_60)
             self.prediction_errors_60.append(current_error)
             self.timestamps.append(current_time)
             self.forecasted_timestamps_60.append(future_time)
-            
-            '''
-            self.actual_values.append(current_value) gets appended in the 
-            calc_power_rate_of_change method
-            '''
+
+            """
+            NOTE: self.actual_values.append(current_value) gets
+            appended in the calc_power_rate_of_change method
+            """
 
             print(f"{current_time} - {current_value} - {current_rate_of_change}")
-            print(f"{future_time} - {actual_value_60} - {forecasted_value_60} - {current_error}")
+            print(
+                f"{future_time} - {actual_value_60} - {forecasted_value_60} - {current_error}"
+            )
             print()
 
             print(len(self.timestamps))
@@ -267,18 +301,21 @@ class PowerMeterForecast:
             print(len(self.prediction_errors_60))
             print()
 
-        mse_60 = mean_squared_error(self.forecasted_values_60, self.actual_values_60)
+        mse_60 = round(mean_squared_error(self.forecasted_values_60, self.actual_values_60),2)
         self.mse_string = f"MSE: {mse_60}"
         print(self.mse_string)
         print()
 
-        print("timestamps: ",len(self.timestamps))
-        print("forecasted_values_60: ",len(self.forecasted_values_60))
-        print("forecasted_timestamps_60: ",len(self.forecasted_timestamps_60))
-        print("actual_values_60: ",len(self.actual_values_60))
-        print("power_lv_rate_of_change_values: ",len(self.power_lv_rate_of_change_values))
-        print("prediction_errors_60: ",len(self.prediction_errors_60))
+        print("timestamps: ", len(self.timestamps))
+        print("forecasted_values_60: ", len(self.forecasted_values_60))
+        print("forecasted_timestamps_60: ", len(self.forecasted_timestamps_60))
+        print("actual_values_60: ", len(self.actual_values_60))
+        print(
+            "power_lv_rate_of_change_values: ", len(self.power_lv_rate_of_change_values)
+        )
+        print("prediction_errors_60: ", len(self.prediction_errors_60))
         print()
+
 
 # Execution time tracking
 st = time.time()

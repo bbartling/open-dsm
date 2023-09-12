@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DR Dashboard</title>
+    <style>
+        body {
+            background-color: #1f1f1f;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+
+        .dashboard {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: #333333;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 36px;
+            font-weight: bold;
+            color: #ff9900;
+            text-align: center;
+        }
+
+        p {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        /* Styling for Yello */
+        #payload {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ff9900;
+        }
+    </style>
+    <script>
+        // Function to fetch data from the server
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/data', {
+                    method: 'GET',
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateDashboard(data);
+                } else {
+                    console.error('Failed to fetch data');
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        // Function to update the dashboard with fetched data
+        function updateDashboard(data) {
+            const inputPowerElement = document.getElementById('input-power');
+            const oneHrFuturePwrElement = document.getElementById('one-hr-future-pwr');
+            const powerRateOfChangeElement = document.getElementById('power-rate-of-change');
+
+            inputPowerElement.textContent = data.input_power;
+            oneHrFuturePwrElement.textContent = data.one_hr_future_pwr;
+            powerRateOfChangeElement.textContent = data.power_rate_of_change;
+        }
+
+        // Fetch data when the page loads
+        window.addEventListener('load', () => {
+            fetchData();
+        });
+    </script>
+</head>
+<body>
+    <div class="dashboard">
+        <h1>Open Demand Side Management</h1>
+        <p><strong>Current Power:</strong> <span id="input-power">Loading...</span></p>
+        <p><strong>One Hour Future Power:</strong> <span id="one-hr-future-pwr">Loading...</span></p>
+        <p><strong>Power Rate of Change:</strong> <span id="power-rate-of-change">Loading...</span></p>
+    </div>
+</body>
+</html>
