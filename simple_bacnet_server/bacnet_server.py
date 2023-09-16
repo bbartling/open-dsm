@@ -10,12 +10,14 @@ from bacpypes.local.object import AnalogValueCmdObject
 from bacpypes.local.device import LocalDeviceObject
 from bacpypes.service.cov import ChangeOfValueServices
 from bacpypes.service.object import ReadWritePropertyMultipleServices
+from bacpypes.primitivedata import Real
 
 import pandas as pd
 import numpy as np
 
 from sklearn.neural_network import MLPRegressor
-import datetime
+from datetime import datetime
+import threading, time
 
 _debug = 0
 _log = ModuleLogger(globals())
@@ -26,26 +28,39 @@ register_object_type(AnalogValueCmdObject, vendor_id=999)
 # written to writeable AV
 INTERVAL = 60.0
 
+
 @bacpypes_debugging
 class SampleApplication(
     BIPSimpleApplication, ReadWritePropertyMultipleServices, ChangeOfValueServices
 ):
     pass
 
+
 @bacpypes_debugging
 class DoDataScience(RecurringTask):
-    def __init__(self, interval, input_power, one_hr_future_pwr, power_rate_of_change):
+    def __init__(
+        self,
+        interval,
+        input_power,
+        one_hr_future_pwr,
+        power_rate_of_change,
+        power_forecast,
+    ):
         super().__init__(interval * 1000)
         self.interval = interval
         self.input_power = input_power
         self.one_hr_future_pwr = one_hr_future_pwr
         self.power_rate_of_change = power_rate_of_change
+        self.power_forecast = power_forecast
 
     def process_task(self):
-        
         print("input_power \n", self.input_power.presentValue)
         print("one_hr_future_pwr \n", self.one_hr_future_pwr.presentValue)
         print("power_rate_of_change \n", self.power_rate_of_change.presentValue)
+
+        # Call the forecasting cycle
+        self.power_forecast.run_forecasting_cycle()
+
 
 class BacnetServer:
     def __init__(self, ini_file, address):
@@ -58,9 +73,11 @@ class BacnetServer:
             presentValue=-1.0,
             statusFlags=[0, 0, 0, 0],
             covIncrement=1.0,
-            description="writeable input for app buildings electricity power value"
+            description="writeable input for app buildings electricity power value",
         )
         self.app.add_object(self.input_power)
+
+        self.power_forecast = PowerMeterForecast(self.input_power)
 
         self.one_hr_future_pwr = AnalogValueObject(
             objectIdentifier=("analogValue", 2),
@@ -68,7 +85,7 @@ class BacnetServer:
             presentValue=-1.0,
             statusFlags=[0, 0, 0, 0],
             covIncrement=1.0,
-            description="electrical power one hour into the future"
+            description="electrical power one hour into the future",
         )
         self.app.add_object(self.one_hr_future_pwr)
 
@@ -78,12 +95,18 @@ class BacnetServer:
             presentValue=-1.0,
             statusFlags=[0, 0, 0, 0],
             covIncrement=1.0,
-            description="current electrical power rate of change"
+            description="current electrical power rate of change",
         )
         self.app.add_object(self.power_rate_of_change)
 
+        self.power_forecast = PowerMeterForecast(self.input_power)  # Pass input_power as an argument
+
         self.task = DoDataScience(
-            INTERVAL, self.input_power, self.one_hr_future_pwr, self.power_rate_of_change
+            INTERVAL,
+            self.input_power,
+            self.one_hr_future_pwr,
+            self.power_rate_of_change,
+            self.power_forecast,
         )
         self.task.install_task()
 
@@ -92,7 +115,8 @@ class BacnetServer:
 
 
 class PowerMeterForecast:
-    def __init__(self):
+    def __init__(self, input_power):
+        self.input_power = input_power
         self.rolling_avg_data = pd.DataFrame(columns=["Date", "Usage_kW"])
 
         self.data_counter = 0
@@ -103,16 +127,17 @@ class PowerMeterForecast:
         self.forecasted_value_60 = None
         self.is_valley = None
         self.is_peak = None
-        
+
         self.model = None
         self.last_train_time = None
         self.model_trained = False
+        self.total_training_time_minutes = 0
 
         self.DAYS_TO_CACHE = 21  # days of data one minute intervals
         self.CACHE_LIMIT = 1440 * self.DAYS_TO_CACHE
         self.SPIKE_THRESHOLD_POWER_PER_MINUTE = 20
         self.BUILDING_POWER_SETPOINT = 20
-        
+
     def update_rolling_avg_data(self, timestamp, usage_kW):
         new_row = {"Date": timestamp, "Usage_kW": usage_kW}
         self.rolling_avg_data = self.rolling_avg_data.append(new_row, ignore_index=True)
@@ -120,12 +145,20 @@ class PowerMeterForecast:
 
     def calculate_rolling_average(self, window_size=60):
         self.rolling_avg_data["Date"] = pd.to_datetime(self.rolling_avg_data["Date"])
-        self.rolling_avg_data["rolling_avg"] = self.rolling_avg_data["Usage_kW"].rolling(window=window_size).mean()
+        self.rolling_avg_data["rolling_avg"] = (
+            self.rolling_avg_data["Usage_kW"].rolling(window=window_size).mean()
+        )
         self.rolling_avg_data.dropna(subset=["rolling_avg"], inplace=True)
-        
-    def update_input_power(self, timestamp, sensor_reading):
-        # Update the input_power object's presentValue with the sensor_reading
-        self.input_power.presentValue = sensor_reading
+
+    def set_one_hr_future_pwr(self, value):
+        # Update the one_hr_future_pwr object's presentValue with the provided value
+        self.one_hr_future_pwr.presentValue = Real(value)
+        print("one_hr_future_pwr \n", self.one_hr_future_pwr.presentValue)
+
+    def set_power_rate_of_change(self, value):
+        # Update the power_rate_of_change object's presentValue with the provided value
+        self.power_rate_of_change.presentValue = Real(value)
+        print("power_rate_of_change \n", self.power_rate_of_change.presentValue)
 
     def get_input_power(self):
         # Return the input_power object's presentValue
@@ -142,15 +175,16 @@ class PowerMeterForecast:
     def create_dataset(self, y, input_window=60, forecast_horizon=1):
         dataX, dataY = [], []
         length = len(y) - input_window - forecast_horizon + 1
-        print("LENGTH: ",length)
+        print("LENGTH: ", length)
         for i in range(length):
             dataX.append(y[i : (i + input_window)])
             dataY.append(y[i + input_window : i + input_window + forecast_horizon])
         return np.array(dataX), np.array(dataY)
 
     def poll_sensor_data(self, sensor_reading=None):
+        sensor_reading = self.get_input_power()
         if sensor_reading is not None:
-            return pd.Timestamp(datetime.now(), sensor_reading)
+            return datetime.now(), sensor_reading
         return None, None
 
     def fetch_and_store_data(self):
@@ -167,7 +201,6 @@ class PowerMeterForecast:
         if len(self.data_cache) > self.CACHE_LIMIT:
             self.data_cache = self.data_cache.iloc[-self.CACHE_LIMIT :]
         return True
-    
 
     def calc_power_rate_of_change(self):
         """
@@ -197,8 +230,49 @@ class PowerMeterForecast:
 
         return is_below_30th, is_above_90th
 
+    def train_model_thread(self):
+        while True:
+            if len(self.data_cache) > 120:
+                if (
+                    self.last_train_time is None
+                    or (datetime.datetime.now() - self.last_train_time).total_seconds()
+                    >= 86400  # 24 hours in seconds, train once per day
+                ):
+                    print("Fit Model Called!")
+                    X, Y = self.create_dataset(self.data_cache["y"].values)
+
+                    start_time = time.time()
+                    self.model = MLPRegressor()
+                    self.model.fit(X, Y.ravel())
+                    
+                    training_time_minutes = (
+                        time.time() - start_time
+                    ) / 60
+                    
+                    self.total_training_time_minutes += (
+                        training_time_minutes
+                    )
+                    
+                    self.last_train_time = datetime.datetime.now()
+                    self.model_trained = True
+
+                    # Print the training information
+                    print(
+                        f"Model has been trained on {self.last_train_time} and took {training_time_minutes:.2f} minutes for training."
+                    )
+                    print(
+                        f"Total training time: {self.total_training_time_minutes:.2f} minutes"
+                    )
+
+            if not self.model_trained:
+                print("Model hasn't trained yet.")
+                time.sleep(300)
+
     def run_forecasting_cycle(self):
-        
+        model_training_thread = threading.Thread(target=self.train_model_thread)
+        model_training_thread.daemon = True
+        model_training_thread.start()
+
         data_available = self.fetch_and_store_data()
         if not data_available:
             return
@@ -206,25 +280,7 @@ class PowerMeterForecast:
         current_time = self.data_cache["ds"].iloc[-1]
         current_value = self.data_cache["y"].iloc[-1]
 
-        print("run_forecasting_cycle current_value: ",current_value)
-
-        if current_value = -1.0 # default vals its not getting data
-            return
-
         y = self.data_cache["y"].values
-
-        if len(y) > 120 and (
-            self.last_train_time is None
-            # or (current_time - last_train_time) >= pd.Timedelta(days=1)
-        ):
-            print("Fit Model Called!")
-            X, Y = self.create_dataset(y)
-
-            self.model = MLPRegressor()
-            
-            self.model.fit(X, Y.ravel())
-            self.last_train_time = current_time
-            self.model_trained = True
 
         if not self.model_trained:
             print(f"model hasn't trained yet {current_time}")
@@ -236,16 +292,22 @@ class PowerMeterForecast:
         self.forecasted_value_60 = self.model.predict(y[-60:].reshape(1, -1))[0]
 
         self.is_valley, self.is_peak = self.check_percentiles(current_value)
-        
+
         if self.is_valley:
             print("Valley!")
         elif self.is_peak:
             print("Peak!")
 
+        # Update one_hr_future_pwr and log its value
+        self.set_one_hr_future_pwr(self.forecasted_value_60)
+
+        # Update power_rate_of_change and log its value
+        self.set_power_rate_of_change(self.current_power_lv_rate_of_change)
+
 
 if __name__ == "__main__":
     parser = ConfigArgumentParser(description=__doc__)
     args = parser.parse_args()
-    power_forecast = PowerMeterForecast()
+    
     bacnet_server = BacnetServer(args.ini, args.ini.address)
     bacnet_server.run()
