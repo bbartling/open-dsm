@@ -2,14 +2,20 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.neighbors import KNeighborsRegressor
 from sklearn.metrics import mean_squared_error
+import csv
 
 
 class PowerMeterForecast:
     def __init__(self, csv_path):
         self.csv_data = pd.read_csv(csv_path)
         self.csv_data["Date"] = pd.to_datetime(self.csv_data["Date"])
+        self.csv_data["rolling_avg"] = self.csv_data["Usage_kW"].rolling(window=60).mean()
+        self.csv_data.dropna(subset=["rolling_avg"], inplace=True)
+
         self.data_counter = 0
         self.data_cache = pd.DataFrame(columns=["ds", "y"])
 
@@ -24,14 +30,16 @@ class PowerMeterForecast:
         self.current_power_last_15mins_avg_rate_of_change = None
         self.current_power_lv_rate_of_change = None
 
-        self.DAYS_TO_CACHE = 7  # days of data one minute intervals
+        self.DAYS_TO_CACHE = 21  # days of data one minute intervals
         self.CACHE_LIMIT = 1440 * self.DAYS_TO_CACHE
         self.SPIKE_THRESHOLD_POWER_PER_MINUTE = 20
         self.BUILDING_POWER_SETPOINT = 20
 
     def create_dataset(self, y, input_window=60, forecast_horizon=1):
         dataX, dataY = [], []
-        for i in range(len(y) - input_window - forecast_horizon + 1):
+        length = len(y) - input_window - forecast_horizon + 1
+        print("LENGTH: ",length)
+        for i in range(length):
             dataX.append(y[i : (i + input_window)])
             dataY.append(y[i + input_window : i + input_window + forecast_horizon])
         return np.array(dataX), np.array(dataY)
@@ -111,15 +119,12 @@ class PowerMeterForecast:
         ax4.tick_params(axis="y", labelcolor="tab:purple")
         ax4.legend(loc="upper left")
 
-    def plot_zoomed_results(self, axs):
+    def plot_zoomed_results(self, axs, zoom_date="8-3-22"):
         color = "tab:blue"
         self.plot_main_results(axs)
 
-        max_power_idx = self.actual_values.index(max(self.actual_values))
-        max_power_date = self.timestamps[max_power_idx]
-
-        zoom_start_date = max_power_date - pd.Timedelta(hours=12)
-        zoom_end_date = max_power_date + pd.Timedelta(hours=12)
+        zoom_start_date = pd.Timestamp(zoom_date)
+        zoom_end_date = zoom_start_date + pd.Timedelta(days=1)  # Zoom for 24 hours
 
         for ax in axs:
             ax.set_xlim(zoom_start_date, zoom_end_date)
@@ -141,9 +146,9 @@ class PowerMeterForecast:
         filename = f"results"
         self.save_plot(filename)
 
-    def run_and_save_zoomed_plot(self):
-        fig, axs = plt.subplots(nrows=4, figsize=(15, 20))  # Updated subplot count
-        self.plot_zoomed_results(axs)
+    def run_and_save_zoomed_plot(self, zoom_date="8-3-22"):
+        fig, axs = plt.subplots(nrows=4, figsize=(15, 20))
+        self.plot_zoomed_results(axs, zoom_date)
         filename = f"results_zoomed"
         self.save_plot(filename)
 
@@ -151,7 +156,7 @@ class PowerMeterForecast:
         if self.data_counter < len(self.csv_data):
             data_row = self.csv_data.iloc[self.data_counter]
             self.data_counter += 1
-            return pd.Timestamp(data_row["Date"]), data_row["Usage_kW"]
+            return pd.Timestamp(data_row["Date"]), data_row["rolling_avg"]
         return None, None
 
     def fetch_and_store_data(self):
@@ -213,10 +218,12 @@ class PowerMeterForecast:
 
         return is_below_30th, is_above_90th
 
-    def run_forecasting_cycle(self):
+    def run_forecasting_cycle(self, model_to_try):
         model = None
         last_train_time = None
         model_trained = False  # Add this flag
+
+        print("run_forecasting_cycle: ",model)
 
         while True:
             data_available = self.fetch_and_store_data()
@@ -228,13 +235,15 @@ class PowerMeterForecast:
 
             y = self.data_cache["y"].values
 
-            if len(y) > 61 and (
+            if len(y) > 120 and (
                 last_train_time is None
                 or (current_time - last_train_time) >= pd.Timedelta(days=1)
             ):
                 print("Fit Model Called!")
                 X, Y = self.create_dataset(y)
-                model = RandomForestRegressor(n_estimators=100, random_state=42)
+
+                model = model_to_try
+                
                 model.fit(X, Y.ravel())
                 last_train_time = current_time
                 model_trained = True  # Set the flag when the model is trained
@@ -256,12 +265,12 @@ class PowerMeterForecast:
                 self.csv_data.loc[
                     (self.csv_data["Date"] >= future_time)
                     & (self.csv_data["Date"] < future_time + pd.Timedelta(minutes=1)),
-                    "Usage_kW",
+                    "rolling_avg",
                 ].values[0]
                 if not self.csv_data.loc[
                     (self.csv_data["Date"] >= future_time)
                     & (self.csv_data["Date"] < future_time + pd.Timedelta(minutes=1)),
-                    "Usage_kW",
+                    "rolling_avg",
                 ].empty
                 else 0  # default value
             )
@@ -317,21 +326,46 @@ class PowerMeterForecast:
         print()
 
 
-# Execution time tracking
-st = time.time()
 
-csv_path = "./data/egauge_data_reversed_output.csv"
-forecast_app = PowerMeterForecast(csv_path)
-forecast_app.run_forecasting_cycle()
+models = [
+    ("MLPRegressor", MLPRegressor()),
+    ("RandomForestRegressor", RandomForestRegressor()),
+    ("KNeighborsRegressor", KNeighborsRegressor()),
+    ("AdaBoostRegressor", AdaBoostRegressor()),
+    ("GradientBoostingRegressor", GradientBoostingRegressor()),
+]
 
-et = time.time()
+execution_times = []
 
-elapsed_time = et - st
-print("Execution time in seconds:", elapsed_time)
-print("Execution time in minutes:", elapsed_time // 60)
+for model_name, model in models:
+    print("Starting model: ", model_name)
 
-forecast_app.run_and_save_main_plot()
-forecast_app.run_and_save_zoomed_plot()
+    st = time.time()
 
-forecast_app.save_data_to_csv("./data/forecasted_data.csv")
-print("All done")
+    csv_path = "./data/egauge_data_reversed_output.csv"
+    forecast_app = PowerMeterForecast(csv_path)
+    forecast_app.run_forecasting_cycle(model)
+
+    et = time.time()
+
+    elapsed_time = et - st
+    execution_times.append((model_name, elapsed_time))
+
+    print(f"Execution time in seconds for {model_name}:", elapsed_time)
+    print(f"Execution time in minutes for {model_name}:", elapsed_time // 60)
+
+    forecast_app.run_and_save_zoomed_plot(zoom_date="8-3-22")
+
+    # Save the model name in the .png filenames
+    forecast_app.save_plot(f"results_{model_name}")
+    forecast_app.save_plot(f"results_zoomed_{model_name}")
+
+# Save execution times to a CSV file
+with open('execution_times.csv', 'w', newline='') as csvfile:
+    csv_writer = csv.writer(csvfile)
+    csv_writer.writerow(['Model', 'Execution Time (Seconds)'])
+    csv_writer.writerows(execution_times)
+
+
+
+

@@ -16,14 +16,43 @@ This project creates a BACnet server that collects and provides data related to 
 pip install flask bacpypes
 ```
 
-2. run or test script:
+2. Clone repo, cd into into `open-dsm/simple_bacnet_server` and edit the `BACpypes.ini` file for the IP address of the NIC card for the computer being used. 
+Example .ini file that is included with the repo, edit the `address` field as necessary. Edit the `objectIdentifier` as necessary if the BACnet instance ID needs
+to be modified to accomodate the buildings BACnet system. The computer running this app will show up on a BACnet discovery to another platform as `PowerForecaster`.
+
+```bash
+[BACpypes]
+objectName: PowerForecaster
+address: 192.168.0.109/24 
+objectIdentifier: 500001
+maxApduLengthAccepted: 1024
+segmentationSupported: segmentedBoth
+vendorIdentifier: 15
+```
+
+3. run or test script:
 
 ```bash
 $ python bacnet_server.py
 ```
 
+## Usage
+**Web Dashboard**
+* Access the web dashboard by navigating to `http://<server_ip>:5000/` in your web browser.
 
-### Run `bacnet_server.py` as a linux service.
+**API Endpoint**
+* Fetch data from the BACnet server using the API endpoint:
+
+**Endpoint**: http://<server_ip>:5000/api/data
+* Method: GET
+
+**BACnet Server Analog Value Points**
+1. `input-power-meter` (writeable)
+2. `one-hour-future-power` (readonly)
+3. `power-rate-of-change` (readonly)
+
+
+### (Optional) Run `bacnet_server.py` as a linux service.
 
 1. **Create a Service Unit File**
 
