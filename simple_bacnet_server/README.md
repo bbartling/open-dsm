@@ -1,11 +1,16 @@
-# BACnet Server with Flask Integration
+# BACnet Server with Sci-kit Learn Integration
 
-This project creates a BACnet server that collects and provides data related to electricity power values. It also includes a Flask-based web dashboard to display this data and an API endpoint to fetch the BACnet server's data.
+This project offers an innovative approach by merging BACnet server capabilities with the power of scikit-learn, a popular machine learning library. By leveraging time series machine learning techniques, the server can predict electricity power values for the upcoming hour. This is invaluable for optimizing energy consumption, ensuring efficient building operations, and responding proactively to potential power spikes.
+
+## Features
+* **Time Series Forecasting** : Uses advanced machine learning techniques to forecast the power meter readings 1 hour into the future. This aids in understanding potential power spikes or lapses.
+* **Dynamic Model Training** : Trains a new model every midnight. This ensures that the model is always up-to-date, accommodating daily variations and subtle changes in the building's electricity usage patterns.
+* **High & Low Load Indicators** : The BACnet Binary Values (BVs) are set to indicate high and low electrical usage based on the 90th and 30th percentiles respectively. This statistical approach ensures accurate indications of peak and low power consumption times.
+* **Operational Technology (OT) Control System Integration** : Especially designed for buildings equipped with an OT control system. By using the forecasted values, the system can act preemptively to limit excess power usage and reduce demand spikes.
 
 ## Requirements
 
 - Python 3.x
-- Flask
 - BACpypes library
 
 ## Installation
@@ -13,7 +18,7 @@ This project creates a BACnet server that collects and provides data related to 
 1. pip install
 
 ```bash
-pip install flask bacpypes
+pip install bacpypes pandas numpy scikit-learn
 ```
 
 2. Clone repo, cd into into `open-dsm/simple_bacnet_server` and edit the `BACpypes.ini` file for the IP address of the NIC card for the computer being used. 
@@ -37,15 +42,6 @@ $ python bacnet_server.py
 ```
 
 ## Usage
-**Web Dashboard**
-* Access the web dashboard by navigating to `http://<server_ip>:5000/` in your web browser.
-
-**API Endpoint**
-* Fetch data from the BACnet server using the API endpoint:
-
-**Endpoint**: http://<server_ip>:5000/api/data
-* Method: GET
-
 **BACnet Server Analog Value Points**
 1. `input-power-meter` (writeable)
 2. `one-hour-future-power` (readonly)

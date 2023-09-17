@@ -5,7 +5,7 @@ from bacpypes.consolelogging import ConfigArgumentParser
 from bacpypes.core import run
 from bacpypes.task import RecurringTask
 from bacpypes.app import BIPSimpleApplication
-from bacpypes.object import AnalogValueObject, register_object_type
+from bacpypes.object import AnalogValueObject, register_object_type, BinaryValueObject
 from bacpypes.local.object import AnalogValueCmdObject
 from bacpypes.local.device import LocalDeviceObject
 from bacpypes.service.cov import ChangeOfValueServices
@@ -98,8 +98,26 @@ class BacnetServer:
             description="current electrical power rate of change",
         )
         self.app.add_object(self.power_rate_of_change)
+        
+        self.high_load_bv = BinaryValueObject(
+            objectIdentifier=("binaryValue", 1),
+            objectName="high-load-conditions",
+            presentValue="inactive",
+            statusFlags=[0, 0, 0, 0],
+            description="Peak power usage detected, shed loads if possible",
+        )
+        self.app.add_object(self.high_load_bv)
+        
+        self.low_load_bv = BinaryValueObject(
+            objectIdentifier=("binaryValue", 2),
+            objectName="low-load-conditions",
+            presentValue="inactive",
+            statusFlags=[0, 0, 0, 0],
+            description="Low power usage detected, charge TES or battery okay",
+        )
+        self.app.add_object(self.low_load_bv)
 
-        self.power_forecast = PowerMeterForecast(self.input_power)  # Pass input_power as an argument
+        self.power_forecast = PowerMeterForecast(self.input_power)
 
         self.task = DoDataScience(
             INTERVAL,
@@ -131,6 +149,7 @@ class PowerMeterForecast:
         self.model = None
         self.last_train_time = None
         self.model_trained = False
+        self.training_started_today = False
         self.total_training_time_minutes = 0
 
         self.DAYS_TO_CACHE = 21  # days of data one minute intervals
@@ -153,12 +172,24 @@ class PowerMeterForecast:
     def set_one_hr_future_pwr(self, value):
         # Update the one_hr_future_pwr object's presentValue with the provided value
         self.one_hr_future_pwr.presentValue = Real(value)
-        print("one_hr_future_pwr \n", self.one_hr_future_pwr.presentValue)
+        print("one_hr_future_pwr: \n", self.one_hr_future_pwr.presentValue)
 
     def set_power_rate_of_change(self, value):
         # Update the power_rate_of_change object's presentValue with the provided value
         self.power_rate_of_change.presentValue = Real(value)
-        print("power_rate_of_change \n", self.power_rate_of_change.presentValue)
+        print("power_rate_of_change: \n", self.power_rate_of_change.presentValue)
+        
+    def set_high_load_bv(self, value_str):
+        # Update the high_load_bv object's presentValue with the provided value
+        # BVs can only be "active" or "inactive"
+        self.high_load_bv.presentValue = value_str
+        print("high_load_bv: \n", self.high_load_bv.presentValue)
+        
+    def set_low_load_bv(self, value_str):
+        # Update the low_load_bv object's presentValue with the provided value
+        # BVs can only be "active" or "inactive"
+        self.low_load_bv.presentValue = value_str
+        print("low_load_bv: \n", self.low_load_bv.presentValue)
 
     def get_input_power(self):
         # Return the input_power object's presentValue
@@ -231,47 +262,36 @@ class PowerMeterForecast:
         return is_below_30th, is_above_90th
 
     def train_model_thread(self):
-        while True:
-            if len(self.data_cache) > 120:
-                if (
-                    self.last_train_time is None
-                    or (datetime.datetime.now() - self.last_train_time).total_seconds()
-                    >= 86400  # 24 hours in seconds, train once per day
-                ):
-                    print("Fit Model Called!")
-                    X, Y = self.create_dataset(self.data_cache["y"].values)
+        print("Fit Model Called!")
+        X, Y = self.create_dataset(self.data_cache["y"].values)
 
-                    start_time = time.time()
-                    self.model = MLPRegressor()
-                    self.model.fit(X, Y.ravel())
-                    
-                    training_time_minutes = (
-                        time.time() - start_time
-                    ) / 60
-                    
-                    self.total_training_time_minutes += (
-                        training_time_minutes
-                    )
-                    
-                    self.last_train_time = datetime.datetime.now()
-                    self.model_trained = True
+        start_time = time.time()
+        self.model = MLPRegressor()
+        self.model.fit(X, Y.ravel())
+        
+        training_time_minutes = (time.time() - start_time) / 60
+        
+        self.total_training_time_minutes += training_time_minutes
+        
+        self.last_train_time = datetime.datetime.now()
+        self.model_trained = True
 
-                    # Print the training information
-                    print(
-                        f"Model has been trained on {self.last_train_time} and took {training_time_minutes:.2f} minutes for training."
-                    )
-                    print(
-                        f"Total training time: {self.total_training_time_minutes:.2f} minutes"
-                    )
-
-            if not self.model_trained:
-                print("Model hasn't trained yet.")
-                time.sleep(300)
+        # Print the training information
+        print(
+            f"Model has been trained on {self.last_train_time} and took {training_time_minutes:.2f} minutes for training."
+        )
+        print(
+            f"Total training time: {self.total_training_time_minutes:.2f} minutes"
+        )
 
     def run_forecasting_cycle(self):
-        model_training_thread = threading.Thread(target=self.train_model_thread)
-        model_training_thread.daemon = True
-        model_training_thread.start()
+        now = datetime.now()
+        if now.hour == 0 and now.minute == 0 and not self.training_started_today and len(self.data_cache) > 120:
+            model_training_thread = threading.Thread(target=self.train_model_thread)
+            model_training_thread.start()
+            self.training_started_today = True
+        elif now.hour == 1:  # Reset the flag after one hour past midnight
+            self.training_started_today = False
 
         data_available = self.fetch_and_store_data()
         if not data_available:
@@ -286,23 +306,32 @@ class PowerMeterForecast:
             print(f"model hasn't trained yet {current_time}")
             return
 
-        # attempts to detect a spike, like equipment startup
-        self.calc_power_rate_of_change()
-
         self.forecasted_value_60 = self.model.predict(y[-60:].reshape(1, -1))[0]
-
-        self.is_valley, self.is_peak = self.check_percentiles(current_value)
-
-        if self.is_valley:
-            print("Valley!")
-        elif self.is_peak:
-            print("Peak!")
 
         # Update one_hr_future_pwr and log its value
         self.set_one_hr_future_pwr(self.forecasted_value_60)
+        
+        # attempts to detect a spike, like equipment startup
+        self.calc_power_rate_of_change()
 
         # Update power_rate_of_change and log its value
         self.set_power_rate_of_change(self.current_power_lv_rate_of_change)
+        
+        self.is_valley, self.is_peak = self.check_percentiles(current_value)
+
+        if self.is_peak:
+            self.set_high_load_bv("active")
+            self.set_low_load_bv("inactive")
+            print("Setting BVs to Peak!")
+            
+        elif self.is_valley:
+            self.set_high_load_bv("inactive")
+            self.set_low_load_bv("active")
+            print("Setting BVs to Valley!")
+        else:
+            self.set_high_load_bv("inactive")
+            self.set_low_load_bv("inactive")
+            print("Setting BVs to Valley!")  
 
 
 if __name__ == "__main__":
