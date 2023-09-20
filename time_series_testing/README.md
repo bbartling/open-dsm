@@ -39,13 +39,13 @@ Model	Execution Time (Seconds)
 * AdaBoostRegressor: 7975.343665
 * GradientBoostingRegressor: 14216.92529
 
-Model with lowest MSE and fastest training time:
+MLP Regressory is the model with lowest MSE and fastest training time. See plots directory for other models tested.
 ![Alt text](/time_series_testing/plots/results_MLPRegressor.png)
 
 
+### **FUTURE IDEA** 
 
-
-### **FUTURE IDEA** of a "Curtail Level" on Signal Attributes from a 0 - 8
+* A BACnet AnalogValue point that represents a "Curtail Level" which is a numeric value of 0 through 8
 These could be examples of strategies designed by the consulting engineer and implemented by the controls contractor or systems integrator for control strategy at designated `curtail level`:
 
 0. Allow charging for electrical vehicles or building battery systems
