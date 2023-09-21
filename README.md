@@ -1,53 +1,48 @@
-# Open DSM
-
-![Alt text](/time_series_testing/plots/algorithm_snip.png)
-
-This repository is dedicated to providing an open-source Demand Side Management (DSM) solution tailored for the building automation industry's demand-side management applications. It is designed to enhance the limitations of existing building automation systems commonly found in BACnet-based commercial buildings.
-
 ## Key Features
 
-The DSM solution in this repository offers the following key features:
+This DSM (Demand Side Management) solution includes a BACnet server running on a Linux distribution of choice, providing several essential features for building automation and energy management:
 
-* **Design and Implementation:** Implement ongoing electrical load management strategies customized for typical commercial buildings. The solution helps building proprietors and operators curtail energy usage and mitigate peak demand.
+* **Electrical Power Forecasting:** The BACnet server can forecast a building's electrical power one hour into the future, enabling proactive load management strategies. Building proprietors and operators can efficiently plan and optimize energy usage, reducing costs and mitigating peak demand.
 
-* **Linux Device Integration:** Strategically position a small Linux device within the building's Operations Technology (OT) LAN to seamlessly transmit signals to the Building Automation System (BAS). This device functions as a recognizable BACnet device and engages with controls contractors for efficient BAS integration.
+* **Linux Device Integration:** Seamlessly integrate a small Linux device into the building's Operations Technology (OT) LAN. This Linux device acts as a recognized BACnet device and facilitates communication with the Building Automation System (BAS) using common BACnet setup practices. This integration enhances the BAS with advanced capabilities.
 
-* **Power Meter Integration:** Integrate power meter data, a prerequisite for the algorithm's demand forecasting capabilities. Options like the [eGauge](https://www.egauge.net/commercial-energy-monitor/) device simplify configuration and data visualization, offering compatibility with Modbus, BACnet, or REST API. A requirement of this app is that the buildings power meter reading (kW) needs to be written to a writeable BACnet point.
+* **Power Meter Integration:** To enable demand forecasting, the solution requires the integration of power meter data. This integration ensures accurate predictions and effective load management. Compatible with various power meters, including the user-friendly [eGauge](https://www.egauge.net/commercial-energy-monitor/) device, the solution simplifies configuration and data visualization. It supports protocols like Modbus, BACnet, or REST API. A prerequisite for using this app is that the building's power meter readings (kW) can be written to a writable BACnet point.
 
-* **Ongoing Monitoring:** Consistently engage with building owners to address concerns related to DSM solution risks, ensuring optimal demand charge management while maintaining indoor air quality, mechanical system efficiency, and overall building safety.
+* **Ongoing Monitoring:** Maintain continuous engagement with building owners to address concerns related to DSM solution risks. This includes optimizing demand charge management, preserving indoor air quality, enhancing mechanical system efficiency, and ensuring overall building safety. Regular monitoring ensures efficient operation and alignment with energy management goals.
+
+These features empower building owners and operators to proactively manage energy consumption, reduce costs, and maintain a safe and efficient building environment.
 
 ## Benefits
 
-The DSM solution can significantly reduce energy consumption, save costs for building owners and operators, and enhance the reliability of the electrical grid.
+The DSM solution can significantly reduce power consumption, save costs for building owners and operators in demand charges, and enhance the reliability of the electrical grid.
 
 ## Future Possibilities
 
-While this solution addresses current building automation limitations, the field continues to evolve. Future research may explore integrating similar algorithms directly into Building Automation Systems (BAS) or Internet of Things (IoT) frameworks to further optimize building operations.
+While this solution addresses current building automation limitations, the field continues to evolve. Future research may explore evolving  the project into something like Home Assistant which is a neat open sourced Linux project.
 
 Consider a scenario where algorithms seamlessly facilitate tasks like electric car charging, battery system management, and HVAC power consumption control within building automation systems. Such advancements may become commonplace in buildings of the future.
 
 Thank you for exploring our DSM solution!
 
-
 ## Repository will offer 
 
-1. Python based analyst scripts for pre-project engineering to create plots of electrical load profiles to study the buildings electrical use patterns. See sub directory `pre_project_analysis`.
+1. Python-based analyst scripts for pre-project engineering to create plots of electrical load profiles to study the building's electrical use patterns. See the subdirectory `pre_project_analysis`.
 
-2. A comprehensive financial spreadsheet to estimate project costs and ROI, see sub directory `financial`.
+2. A comprehensive financial spreadsheet to estimate project costs and ROI, see the subdirectory `financial`.
 
-3. Ability to test algorithms offline on historical data, see `algorithm_testing` sub directory.
+3. Ability to test algorithms offline on historical data, see the `algorithm_testing` subdirectory.
 
-4. An API solution or app that would run on a small Linux device like a Raspberry Pi or Nano Pi that will ingest data from a power meter setup by the consulting engineer (or the buildings main meter if capable) and then communicate via a BACnet and/or REST server a signal which would represent a curtail level.
+4. An API solution or app that would run on a small Linux device like a Raspberry Pi or Nano Pi that will ingest data from a power meter setup by the consulting engineer (or the building's main meter if capable) and then communicate via a BACnet and/or REST server a signal that would represent a curtail level.
 
-5. An open source Linux project inspired by Home Assistant
+5. An open-source Linux project inspired by Home Assistant.
 
 **Repo is still in beta or active development!**
 
-**More comming soon for the edge device app!**
+**More coming soon for the edge device app!**
 
 ## Author
 
-[linkedin](https://www.linkedin.com/in/ben-bartling-510a0961/)
+[LinkedIn](https://www.linkedin.com/in/ben-bartling-510a0961/)
 
 ## Legal Stuff
 
@@ -59,8 +54,7 @@ Users are advised that the security of the application is limited to its use wit
 
 It is essential to acknowledge that any negative outcomes, including but not limited to equipment damage, indoor air quality issues, or personal injuries, are the responsibility of the person or firm who deploys and operates the application within a building. Users are strongly encouraged to thoroughly evaluate and assess the application's suitability for their specific use case, implement appropriate cybersecurity measures where necessary, and take all required precautions to ensure safe and effective utilization.
 
-
-## Licence
+## License
 
 【MIT License】
 
@@ -71,5 +65,3 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
