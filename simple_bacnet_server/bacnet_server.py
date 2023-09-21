@@ -24,10 +24,10 @@ _log = ModuleLogger(globals())
 
 register_object_type(AnalogValueCmdObject, vendor_id=999)
 
-# sample data in seconds of power meter
-# written to writeable AV
-INTERVAL = 60.0
-DEBUG_MODE = True
+INTERVAL = 60.0 # dont adjust sampling interval in seconds of BACnet API dat
+MODEL_TRAIN_HOUR = 0 # 
+DEBUG_MODE = True  # adds extra prints statements
+
 
 @bacpypes_debugging
 class SampleApplication(
@@ -63,11 +63,14 @@ class DoDataScience(RecurringTask):
         )
 
     def process_task(self):
-        print("input_power \n", self.input_power.presentValue)
-        print("one_hr_future_pwr \n", self.one_hr_future_pwr.presentValue)
-        print("power_rate_of_change \n", self.power_rate_of_change.presentValue)
-        print("high_load_bv \n", self.high_load_bv.presentValue)
-        print("low_load_bv \n", self.low_load_bv.presentValue)
+        
+        if DEBUG_MODE:
+            print()
+            print("input_power: ", self.input_power.presentValue)
+            print("one_hr_future_pwr: ", self.one_hr_future_pwr.presentValue)
+            print("power_rate_of_change: ", self.power_rate_of_change.presentValue)
+            print("high_load_bv: ", self.high_load_bv.presentValue)
+            print("low_load_bv: ", self.low_load_bv.presentValue)
 
         # Call the forecasting cycle
         self.power_forecast.run_forecasting_cycle()
@@ -168,9 +171,9 @@ class PowerMeterForecast:
 
         self.model = None
         self.last_train_time = None
-        self.model_trained = False
         self.training_started_today = False
         self.total_training_time_minutes = 0
+        self.model_train_hour = MODEL_TRAIN_HOUR
 
         self.DAYS_TO_CACHE = 28  # days of data one minute intervals
         self.CACHE_LIMIT = 1440 * self.DAYS_TO_CACHE
@@ -192,24 +195,24 @@ class PowerMeterForecast:
     def set_one_hr_future_pwr(self, value):
         # Update the one_hr_future_pwr object's presentValue with the provided value
         self.one_hr_future_pwr.presentValue = Real(value)
-        print("one_hr_future_pwr: \n", self.one_hr_future_pwr.presentValue)
+        print("one_hr_future_pwr: ", self.one_hr_future_pwr.presentValue)
 
     def set_power_rate_of_change(self, value):
         # Update the power_rate_of_change object's presentValue with the provided value
         self.power_rate_of_change.presentValue = Real(value)
-        print("power_rate_of_change: \n", self.power_rate_of_change.presentValue)
+        print("power_rate_of_change: ", self.power_rate_of_change.presentValue)
 
     def set_high_load_bv(self, value_str):
         # Update the high_load_bv object's presentValue with the provided value
         # BVs can only be "active" or "inactive"
         self.high_load_bv.presentValue = value_str
-        print("high_load_bv: \n", self.high_load_bv.presentValue)
+        print("high_load_bv: ", self.high_load_bv.presentValue)
 
     def set_low_load_bv(self, value_str):
         # Update the low_load_bv object's presentValue with the provided value
         # BVs can only be "active" or "inactive"
         self.low_load_bv.presentValue = value_str
-        print("low_load_bv: \n", self.low_load_bv.presentValue)
+        print("low_load_bv: ", self.low_load_bv.presentValue)
 
     def get_input_power(self):
         # Return the input_power object's presentValue
@@ -218,7 +221,7 @@ class PowerMeterForecast:
     def get_one_hr_future_pwr(self):
         # Return the one_hr_future_pwr object's presentValue
         return self.one_hr_future_pwr.presentValue
-    
+
     def get_if_a_model_is_available(self):
         # Return bool is a model has been trained yet
         return hasattr(self.model, "coefs_")
@@ -226,7 +229,7 @@ class PowerMeterForecast:
     def get_power_rate_of_change(self):
         # Return the power_rate_of_change object's presentValue
         return self.power_rate_of_change.presentValue
-    
+
     def set_power_state_based_on_peak_valley(self):
         if self.is_peak:
             self.set_high_load_bv("active")
@@ -270,8 +273,8 @@ class PowerMeterForecast:
 
         if len(self.data_cache) > self.CACHE_LIMIT:
             self.data_cache = self.data_cache.iloc[-self.CACHE_LIMIT :]
-        return True
 
+        return True
 
     def calc_power_rate_of_change(self):
         """
@@ -280,7 +283,7 @@ class PowerMeterForecast:
         """
 
         # Extract the 'y' column
-        y_values = self.data_cache['y'].values
+        y_values = self.data_cache["y"].values
 
         # Compute the gradient
         gradient = np.diff(y_values)
@@ -294,12 +297,11 @@ class PowerMeterForecast:
 
         self.current_power_last_15mins_avg = avg_rate_of_change
         self.current_power_lv_rate_of_change = current_rate_of_change
-        
 
     def check_percentiles(self, current_value):
         # Use only the 'y' column for percentile calculation
-        y_values = self.data_cache['y']
-        
+        y_values = self.data_cache["y"]
+
         percentile_30 = np.percentile(y_values, 30)
         percentile_90 = np.percentile(y_values, 90)
 
@@ -307,7 +309,6 @@ class PowerMeterForecast:
         is_above_90th = current_value > percentile_90
 
         return is_below_30th, is_above_90th
-
 
     def train_model_thread(self):
         try:
@@ -321,44 +322,82 @@ class PowerMeterForecast:
             self.total_training_time_minutes = (time.time() - start_time) / 60
 
             self.last_train_time = datetime.now()
-            self.model_trained = True
-
-            print(f"Model training time: {self.total_training_time_minutes:.2f} minutes on {self.last_train_time}")
-
+            
+            print(
+                f"Model Trained Success Minutes: \n{self.total_training_time_minutes:.2f}"
+            )
+            
         except Exception as e:
             print(f"An error occurred during the model training: {e}")
             # debug purposes exit the program totally
             if DEBUG_MODE:
                 exit(1)
-                
 
     def run_forecasting_cycle(self):
+        """
+        Runs a forecasting cycle as a recurring task, executed every minute using Bacpypes' RecurringTask feature.
+
+        The method performs the following steps:
+
+        1. Fetches and samples power meter data from the BACnet API.
+
+        This method will return early if any of the following conditions are met:
+
+        - The data cache array is empty.
+        - The BACnet API is reading the default value (-1.0), indicating that the control system is not updating the power meter value.
+        - The data cache contains fewer than 65 data points, which is insufficient for model training.
+        - The model has not been trained yet.
+
+        Returns:
+            None if any of the above conditions are met; otherwise, it performs various forecasting and operations.
+        """
+        data_available = self.fetch_and_store_data()
+        if not data_available:
+            print("Data not available. Returning early.")
+            return
+
         now = datetime.now()
         data_cache_len = len(self.data_cache)
 
+        if DEBUG_MODE:
+            print("Data Cache Length: ", data_cache_len)
+            print("Current Hour: ", now.hour)
+            print("Current Minute: ", now.minute)
+            print("Training Started Today: ", self.training_started_today)
+            print("Model Availability: ", self.get_if_a_model_is_available())
+            print(
+                f"Model training time: {self.total_training_time_minutes:.2f} minutes on {self.last_train_time}"
+            )
+
         if not self.data_cache.empty:
-            data_cache_lv = self.data_cache['y'].iloc[-1]
+            data_cache_lv = self.data_cache["y"].iloc[-1]
+            if DEBUG_MODE:
+                print("Data Cache last value: ", data_cache_lv)
         else:
+            print("Data Cache is empty - RETURN")
             return
 
-        # Skip model training if last y value is -1.0
+        # Skip model training if the last y value is -1.0
         if data_cache_lv == -1.0:
+            print("data_cache_lv == -1.0 - RETURN")
             return
-        
-        # not enough data to train a model
+
+        # Not enough data to train a model
         if data_cache_len < 65:
+            print("data_cache_len < 65 - RETURN")
             return
-            
+
         # Train a model at midnight just once
-        if now.hour == 0 and not self.training_started_today:
+        if now.hour == self.model_train_hour and not self.training_started_today:
             model_training_thread = threading.Thread(target=self.train_model_thread)
             model_training_thread.start()
             self.training_started_today = True
         elif now.hour == 1:
             self.training_started_today = False
 
-        # If no model is trained yet, return
-        if not self.model_trained or not self.get_if_a_model_is_available():
+        # If no model is trained yet, return early
+        if not self.get_if_a_model_is_available():
+            print("Model not trained yet, no data science - RETURN")
             return
 
         # Forecasting and other operations
@@ -370,17 +409,9 @@ class PowerMeterForecast:
         self.calc_power_rate_of_change()
         self.set_power_rate_of_change(self.current_power_lv_rate_of_change)
 
-        # set BACnet BVs for peak or valley
+        # Set BACnet BVs for peak or valley
         self.is_valley, self.is_peak = self.check_percentiles(data_cache_lv)
         self.set_power_state_based_on_peak_valley()
-        
-        if DEBUG_MODE:
-            print("data_cache_len: ", data_cache_len)
-            print("now.hour: ", now.hour)
-            print("now.minute: ", now.minute)
-            print("self.training_started_today: ", self.training_started_today)
-            print("data_cache_lv: ", data_cache_lv)
-
 
 
 if __name__ == "__main__":
