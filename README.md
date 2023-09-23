@@ -22,7 +22,7 @@ While this solution addresses current building automation limitations, the field
 
 Consider a scenario where algorithms seamlessly facilitate tasks like electric car charging, battery system management, and HVAC power consumption control within building automation systems. Such advancements may become commonplace in buildings of the future.
 
-Thank you for exploring our DSM solution!
+Thank you for being part of an open source demand side management project!
 
 ## Repository will offer 
 

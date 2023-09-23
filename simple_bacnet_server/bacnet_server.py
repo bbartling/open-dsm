@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import subprocess
+import configparser
 from bacpypes.debugging import bacpypes_debugging, ModuleLogger
 from bacpypes.consolelogging import ConfigArgumentParser
 from bacpypes.core import run
@@ -414,9 +416,57 @@ class PowerMeterForecast:
         self.set_power_state_based_on_peak_valley()
 
 
-if __name__ == "__main__":
+def get_ip_address():
+    try:
+        # This will return the IP address of the default route interface (which should be the host's primary IP)
+        output = subprocess.check_output(["ip", "route", "get", "1"]).decode("utf-8")
+        for line in output.split("\n"):
+            if "src" in line:
+                return line.strip().split("src")[1].split()[0]
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+
+def update_ini_address(ini_file_path, new_address):
+    config = configparser.ConfigParser()
+    config.read(ini_file_path)
+    if "BACpypes" in config:
+        config["BACpypes"]["address"] = new_address
+        with open(ini_file_path, "w") as configfile:
+            config.write(configfile)
+
+
+def main():
+
+    detected_ip_address = get_ip_address()
+    if detected_ip_address:
+        print(f"Detected IP Address: {detected_ip_address}")
+        # Update the ini file
+        update_ini_address("BACpypes.ini", f"{detected_ip_address}/24")
+    else:
+        print("Unable to find IP address. Using the one from ini file.")
+
+    # make a parser
     parser = ConfigArgumentParser(description=__doc__)
+
+    # parse the command line arguments
     args = parser.parse_args()
 
-    bacnet_server = BacnetServer(args.ini, args.ini.address)
+    if _debug:
+        _log.debug("initialization")
+    if _debug:
+        _log.debug("    - args: %r", args)
+
+    # make a device object
+    this_device = LocalDeviceObject(ini=args.ini)
+    if _debug:
+        _log.debug("    - this_device: %r", this_device)
+
+    bacnet_server = BacnetServer(this_device, args.ini.address)
     bacnet_server.run()
+
+
+if __name__ == "__main__":
+    main()
+

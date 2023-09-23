@@ -111,4 +111,15 @@ $ python bacnet_server.py
    sudo systemctl status bacnet_server.service
    ```
 
-   
+## Docker
+**Start docker container**
+   ```bash
+	$ sudo docker build -t bacnet-server .
+	$ sudo docker run --network="host" bacnet-server
+   ```
+
+**Stop docker container**
+   ```bash
+	$ sudo docker ps
+	$ sudo docker stop <CONTAINER_ID>
+	```
