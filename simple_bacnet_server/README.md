@@ -18,7 +18,7 @@ This project offers an innovative approach by merging BACnet server capabilities
 1. pip install
 
 ```bash
-pip install bacpypes pandas numpy scikit-learn
+pip install scikit-learn bacpypes
 ```
 
 2. Clone repo, cd into into `open-dsm/simple_bacnet_server` and edit the `BACpypes.ini` file for the IP address of the NIC card for the computer being used. 
