@@ -110,16 +110,88 @@ $ python bacnet_server.py
    ```bash
    sudo systemctl status bacnet_server.service
    ```
+   
+# Docker Installation on Ubuntu 20.04
 
-## Docker for Linux Virtual Machine Ubuntu 22.04 LTS or on an x86 architecture
-**Start docker container**
+This guide explains how to install Docker on an Ubuntu 20.04 system.
+
+## Prerequisites
+
+- Administrative (sudo) privileges on your Ubuntu system.
+
+## Installation Steps
+
+1. **Update APT Repository:**
+   Update the APT package index to ensure you have the latest package information.
+
    ```bash
-	$ sudo docker build -t bacnet-server .
-	$ sudo docker run --network="host" bacnet-server
+   sudo apt update
+	```
+
+2. **Install Required Dependencies:**
+   Install necessary dependencies for Docker.
+
+   ```bash
+   sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
    ```
+
+3. **Add Docker Repository:**
+   Add Docker's official APT repository and GPG key.
+
+   ```bash
+   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+   ```
+
+4. **Install Docker Engine:**
+   Update the APT package index and install Docker.
+
+   ```bash
+	sudo apt update
+	sudo apt install -y docker-ce docker-ce-cli containerd.io
+   ```
+
+5. **Start and Enable Docker:**
+   Start Docker and enable it to start at boot.
+
+   ```bash
+	sudo systemctl start docker
+	sudo systemctl enable docker
+   ```
+
+6. **Verify Docker Installation:**
+   Verify that Docker is installed and running.
+
+   ```bash
+	sudo docker --version
+   ```
+
+7. **Test Docker with Hello World:**
+   Test Docker by running a hello-world container.
+
+   ```bash
+	sudo docker run hello-world
+   ```
+ 
+8. **Change directory into the correct directory:**
+   Go into the open-dsm bacnet server directory.
+
+   ```bash
+	cd open-dsm/simple_bacnet_server/
+   ```
+
+9. **Build docker container**
+   ```bash
+	sudo docker build -t bacnet-server .
+   ```
+   
+10. **Start docker container**
+   ```bash
+	sudo docker run --network="host" bacnet-server
+   ```
+
 
 **Stop docker container**
    ```bash
-	$ sudo docker ps
-	$ sudo docker stop <CONTAINER_ID>
+	sudo docker ps
+	sudo docker stop <CONTAINER_ID>
 	```

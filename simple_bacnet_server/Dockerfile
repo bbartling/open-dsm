@@ -1,5 +1,5 @@
-# Use Ubuntu 22.04 LTS as the base image
-FROM ubuntu:22.04
+# Use Ubuntu 20.04 LTS as the base image
+FROM ubuntu:20.04
 
 # Maintainer info
 LABEL maintainer="Ben Bartling <ben.bartling@gmail.com>"
@@ -10,10 +10,10 @@ WORKDIR /
 # Install necessary packages
 RUN apt-get update && \
     apt-get install -y python3 python3-pip build-essential libatlas-base-dev && \
-    rm -rf /var/lib/apt/lists/* 
+    rm -rf /var/lib/apt/lists/*
 
-# Install pip
-RUN python3 -m ensurepip --upgrade && \
+# Install pip and setuptools
+RUN apt-get install -y python3-setuptools && \
     python3 -m pip install --no-cache-dir -U pip
 
 # Copy the requirements.txt into the container
