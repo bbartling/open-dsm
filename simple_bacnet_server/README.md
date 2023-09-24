@@ -48,7 +48,7 @@ $ python bacnet_server.py
 3. `power-rate-of-change` (readonly)
 
 
-### (Optional) Run `bacnet_server.py` as a linux service.
+### (Optional) Run `bacnet_server.py` as a linux service on Raspberry Pi.
 
 1. **Create a Service Unit File**
 
@@ -111,7 +111,7 @@ $ python bacnet_server.py
    sudo systemctl status bacnet_server.service
    ```
 
-## Docker
+## Docker for Linux Virtual Machine Ubuntu 22.04 LTS or on an x86 architecture
 **Start docker container**
    ```bash
 	$ sudo docker build -t bacnet-server .

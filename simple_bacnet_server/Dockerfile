@@ -1,28 +1,32 @@
-# SETUP
-# $ sudo docker build -t bacnet-server .
-# $ sudo docker run --network="host" bacnet-server
+# Use Ubuntu 22.04 LTS as the base image
+FROM ubuntu:22.04
 
-# Use an official Python runtime based on Ubuntu as a parent image
-FROM python:3.10-slim-buster
+# Maintainer info
+LABEL maintainer="Ben Bartling <ben.bartling@gmail.com>"
 
-# Set environment variables to reduce Python output during installations
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# Set working directory in the container (you can adjust this if needed)
+WORKDIR /
 
-# Install any needed packages using apt-get
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libblas-dev \
-    liblapack-dev \
-    gfortran \
-    && rm -rf /var/lib/apt/lists/* 
+# Install necessary packages
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip build-essential libatlas-base-dev && \
+    rm -rf /var/lib/apt/lists/* 
 
-# Copy requirements.txt from your current directory and install Python packages
-COPY requirements.txt requirements.txt
+# Install pip
+RUN python3 -m ensurepip --upgrade && \
+    python3 -m pip install --no-cache-dir -U pip
+
+# Copy the requirements.txt into the container
+COPY requirements.txt .
+
+# Install Python packages from requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy your application code from the current directory into the container
-COPY bacnet_server.py bacnet_server.py
+# Copy the necessary application files (bacnet_server.py) from the root directory
+COPY bacnet_server.py .
+
+# Print the versions of installed packages
+RUN pip show numpy scikit-learn bacpypes
 
 # Command to run your application
-CMD ["python", "bacnet_server.py"]
+CMD ["python3", "bacnet_server.py"]
