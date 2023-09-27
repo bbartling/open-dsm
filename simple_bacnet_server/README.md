@@ -48,7 +48,7 @@ $ python bacnet_server.py
    sudo nano bacnet_server.service
    ```
 
-2. **Add the Service Configuration**
+2. **Add the Service Configuration and `EDIT` file as necessary**
 
    ```bash
    [Unit]
@@ -116,28 +116,29 @@ $ python bacnet_server.py
    ```bash
 	sudo docker run -d -p 47808:47808/udp --name my-bacpypes-container bacnet-server
    ```
+### Troubleshooting notes for Docker and tailing logs
 
-4. **stop docker container**
+* **stop docker container**
    ```bash
    sudo docker stop my-bacpypes-container
    ```
 
-5. **remove docker container if you want to make change to .py file rebuild and run again**
+* **remove docker container if you want to make change to .py file rebuild and run again**
    ```bash
    sudo docker rm my-bacpypes-container
    ```
 
-6. **view logs**
+* **view logs**
    ```bash
    sudo docker logs my-bacpypes-container
    ```
 
-7. **tail logs**
+* **tail logs**
    ```bash
    sudo docker logs -f my-bacpypes-container
    ```
 
-8. **pipe logs to less**
+* **pipe logs to less**
    ```bash
    sudo docker logs my-bacpypes-container | less
    ```
