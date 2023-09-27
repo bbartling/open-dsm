@@ -1,32 +1,25 @@
-# Use Ubuntu 20.04 LTS as the base image
-FROM ubuntu:20.04
+# Use a base image for Raspberry Pi with Alpine Linux
+# FROM arm32v6/alpine:3.14
+FROM arm32v7/alpine:latest
 
-# Maintainer info
-LABEL maintainer="Ben Bartling <ben.bartling@gmail.com>"
+WORKDIR /app
 
-# Set working directory in the container (you can adjust this if needed)
-WORKDIR /
+# Update package repositories and install necessary dependencies
+RUN apk --no-cache update && \
+    apk --no-cache add python3 py3-scikit-learn openblas freetype-dev libpng-dev && \
+    ln -s /usr/include/locale.h /usr/include/xlocale.h
 
-# Install necessary packages
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip build-essential libatlas-base-dev && \
-    rm -rf /var/lib/apt/lists/*
+# Install bacpypes3 using pip3
+RUN apk --no-cache add py3-pip && \
+    pip3 install bacpypes3 && \
+    apk del py3-pip && \
+    rm -rf /var/cache/apk/*
 
-# Install pip and setuptools
-RUN apt-get install -y python3-setuptools && \
-    python3 -m pip install --no-cache-dir -U pip
+# Copy your Python application into the container
+COPY bacnet_server.py /app/bacnet_server.py
 
-# Copy the requirements.txt into the container
-COPY requirements.txt .
+# Expose the UDP port that the bacnet server will use
+EXPOSE 47808/udp
 
-# Install Python packages from requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the necessary application files (bacnet_server.py) from the root directory
-COPY bacnet_server.py .
-
-# Print the versions of installed packages
-RUN pip show numpy scikit-learn bacpypes
-
-# Command to run your application
-CMD ["python3", "bacnet_server.py"]
+# Start your application
+CMD ["python3", "bacnet_server.py", "--debug"]

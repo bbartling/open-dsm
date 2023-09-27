@@ -13,6 +13,12 @@ This project offers an innovative approach by merging BACnet server capabilities
 - Python 3.x
 - BACpypes library
 
+## Usage
+**BACnet Server Analog Value Points**
+1. `input-power-meter` (writeable)
+2. `one-hour-future-power` (readonly)
+3. `power-rate-of-change` (readonly)
+
 ## Installation
 
 1. pip install
@@ -21,19 +27,7 @@ This project offers an innovative approach by merging BACnet server capabilities
 pip install scikit-learn bacpypes
 ```
 
-2. Clone repo, cd into into `open-dsm/simple_bacnet_server` and edit the `BACpypes.ini` file for the IP address of the NIC card for the computer being used. 
-Example .ini file that is included with the repo, edit the `address` field as necessary. Edit the `objectIdentifier` as necessary if the BACnet instance ID needs
-to be modified to accomodate the buildings BACnet system. The computer running this app will show up on a BACnet discovery to another platform as `PowerForecaster`.
-
-```bash
-[BACpypes]
-objectName: PowerForecaster
-address: 192.168.0.109/24 
-objectIdentifier: 500001
-maxApduLengthAccepted: 1024
-segmentationSupported: segmentedBoth
-vendorIdentifier: 15
-```
+2. Clone repo, cd into into `open-dsm/simple_bacnet_server`
 
 3. run or test script:
 
@@ -41,18 +35,12 @@ vendorIdentifier: 15
 $ python bacnet_server.py
 ```
 
-## Usage
-**BACnet Server Analog Value Points**
-1. `input-power-meter` (writeable)
-2. `one-hour-future-power` (readonly)
-3. `power-rate-of-change` (readonly)
 
-
-### (Optional) Run `bacnet_server.py` as a linux service on Raspberry Pi.
+### Run `bacnet_server.py` as a linux service
 
 1. **Create a Service Unit File**
 
-   Open a terminal on your Raspberry Pi and navigate to the systemd service unit directory:
+   Open a terminal and navigate to the systemd service unit directory:
 
    ```bash
    cd /etc/systemd/system
@@ -111,87 +99,45 @@ $ python bacnet_server.py
    sudo systemctl status bacnet_server.service
    ```
    
-# Docker Installation on Ubuntu 20.04
+# Docker Installation to run on Raspi Pi Hardware
 
-This guide explains how to install Docker on an Ubuntu 20.04 system.
+### Installation Steps inside the `simple_bacnet_server` directory
 
-## Prerequisites
+1. **Install docker on Pi**
+   * https://docs.docker.com/engine/install/raspberry-pi-os/
 
-- Administrative (sudo) privileges on your Ubuntu system.
 
-## Installation Steps
-
-1. **Update APT Repository:**
-   Update the APT package index to ensure you have the latest package information.
-
-   ```bash
-   sudo apt update
-	```
-
-2. **Install Required Dependencies:**
-   Install necessary dependencies for Docker.
-
-   ```bash
-   sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
-   ```
-
-3. **Add Docker Repository:**
-   Add Docker's official APT repository and GPG key.
-
-   ```bash
-   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-   ```
-
-4. **Install Docker Engine:**
-   Update the APT package index and install Docker.
-
-   ```bash
-	sudo apt update
-	sudo apt install -y docker-ce docker-ce-cli containerd.io
-   ```
-
-5. **Start and Enable Docker:**
-   Start Docker and enable it to start at boot.
-
-   ```bash
-	sudo systemctl start docker
-	sudo systemctl enable docker
-   ```
-
-6. **Verify Docker Installation:**
-   Verify that Docker is installed and running.
-
-   ```bash
-	sudo docker --version
-   ```
-
-7. **Test Docker with Hello World:**
-   Test Docker by running a hello-world container.
-
-   ```bash
-	sudo docker run hello-world
-   ```
- 
-8. **Change directory into the correct directory:**
-   Go into the open-dsm bacnet server directory.
-
-   ```bash
-	cd open-dsm/simple_bacnet_server/
-   ```
-
-9. **Build docker container**
+2. **Build docker container**
    ```bash
 	sudo docker build -t bacnet-server .
    ```
    
-10. **Start docker container**
+3. **Start docker container**
    ```bash
-	sudo docker run --network="host" bacnet-server
+	sudo docker run -d -p 47808:47808/udp --name my-bacpypes-container bacnet-server
    ```
 
-
-**Stop docker container**
+4. **stop docker container**
    ```bash
-	sudo docker ps
-	sudo docker stop <CONTAINER_ID>
-	```
+   sudo docker stop my-bacpypes-container
+   ```
+
+5. **remove docker container if you want to make change to .py file rebuild and run again**
+   ```bash
+   sudo docker rm my-bacpypes-container
+   ```
+
+6. **view logs**
+   ```bash
+   sudo docker logs my-bacpypes-container
+   ```
+
+7. **tail logs**
+   ```bash
+   sudo docker logs -f my-bacpypes-container
+   ```
+
+8. **pipe logs to less**
+   ```bash
+   sudo docker logs my-bacpypes-container | less
+   ```
