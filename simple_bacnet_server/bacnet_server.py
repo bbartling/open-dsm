@@ -2,7 +2,7 @@ import asyncio, time
 
 from bacpypes3.debugging import ModuleLogger
 from bacpypes3.argparse import SimpleArgumentParser
-
+from bacpypes3.primitivedata import Real
 from bacpypes3.app import Application
 from bacpypes3.local.analog import AnalogValueObject
 from bacpypes3.local.binary import BinaryValueObject
@@ -15,39 +15,24 @@ from datetime import datetime
 _debug = 0
 _log = ModuleLogger(globals())
 
-INTERVAL = 60.0
-MODEL_TRAIN_HOUR = 0
-DEBUG_MODE = True
+INTERVAL = 60.0 # dont adjust 
+MODEL_TRAIN_HOUR = 0 # midnight
+DEFAULT_PV = -1.0
 
 class SampleApplication(Application):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.data_science = DoDataScience(
-            kwargs["input_power"],
-            kwargs["one_hr_future_pwr"],
-            kwargs["power_rate_of_change"],
-            kwargs["high_load_bv"],
-            kwargs["low_load_bv"],
-        )
 
-    async def run_forecasting_cycle(self):
-        await self.data_science.run_forecasting_cycle()
-
-
-class DoDataScience:
-    def __init__(
-        self,
-        input_power,
-        one_hr_future_pwr,
-        power_rate_of_change,
-        high_load_bv,
-        low_load_bv,
-    ):
-        self.input_power = input_power
-        self.one_hr_future_pwr = one_hr_future_pwr
-        self.power_rate_of_change = power_rate_of_change
-        self.high_load_bv = high_load_bv
-        self.low_load_bv = low_load_bv
+        self.input_power = kwargs["input_power"]
+        self.one_hr_future_pwr = kwargs["one_hr_future_pwr"]
+        self.power_rate_of_change = kwargs["power_rate_of_change"]
+        self.high_load_bv = kwargs["high_load_bv"]
+        self.low_load_bv = kwargs["low_load_bv"]
+        
+        self.one_hr_future_pwr_lv = DEFAULT_PV
+        self.power_rate_of_change_lv = DEFAULT_PV
+        self.high_load_bv_lv = "inactive"
+        self.low_load_bv_lv = "inactive"
 
         self.rolling_avg_data = []
         self.data_counter = 0
@@ -85,22 +70,16 @@ class DoDataScience:
         for i in range(len(rolling_avg)):
             self.rolling_avg_data[i] = (self.rolling_avg_data[i][0], rolling_avg[i])
 
-    async def set_one_hr_future_pwr(self, value):
-        self.one_hr_future_pwr.presentValue = value
-        print("one_hr_future_pwr: ", self.one_hr_future_pwr.presentValue)
 
-    async def set_power_rate_of_change(self, value):
-        self.power_rate_of_change.presentValue = value
-        print("power_rate_of_change: ", self.power_rate_of_change.presentValue)
-
-    async def set_high_load_bv(self, value_str):
-        self.high_load_bv.presentValue = value_str
-        print("high_load_bv: ", self.high_load_bv.presentValue)
-
-    async def set_low_load_bv(self, value_str):
-        self.low_load_bv.presentValue = value_str
-        print("low_load_bv: ", self.low_load_bv.presentValue)
-
+    async def update_bacnet_api(self):
+        while True:
+            await asyncio.sleep(0.5)
+            
+            self.one_hr_future_pwr.presentValue = Real(self.one_hr_future_pwr_lv)
+            self.power_rate_of_change.presentValue = Real(self.power_rate_of_change_lv)
+            self.high_load_bv.presentValue = self.high_load_bv_lv
+            self.low_load_bv.presentValue = self.low_load_bv_lv
+            
     async def get_input_power(self):
         return self.input_power.presentValue
 
@@ -115,22 +94,22 @@ class DoDataScience:
 
     async def set_power_state_based_on_peak_valley(self):
         if self.is_peak:
-            self.set_high_load_bv("active")
-            self.set_low_load_bv("inactive")
-            print("Setting BVs to Peak!")
+            self.high_load_bv_lv("active")
+            self.low_load_bv_lv("inactive")
+            _log.debug("Setting BVs to Peak!")
         elif self.is_valley:
-            self.set_high_load_bv("inactive")
-            self.set_low_load_bv("active")
-            print("Setting BVs to Valley!")
+            self.high_load_bv_lv("inactive")
+            self.low_load_bv_lv("active")
+            _log.debug("Setting BVs to Valley!")
         else:
-            self.set_high_load_bv("inactive")
-            self.set_low_load_bv("inactive")
-            print("Setting BVs to Valley!")
+            self.high_load_bv_lv("inactive")
+            self.low_load_bv_lv("inactive")
+            _log.debug("Setting BVs to Valley!")
 
     async def create_dataset(self, y, input_window=60, forecast_horizon=1):
         dataX, dataY = [], []
         length = len(y) - input_window - forecast_horizon + 1
-        print("LENGTH: ", length)
+        _log.debug("LENGTH: ", length)
         for i in range(length):
             dataX.append(y[i : (i + input_window)])
             dataY.append(y[i + input_window : i + input_window + forecast_horizon])
@@ -157,6 +136,7 @@ class DoDataScience:
 
     async def calc_power_rate_of_change(self):
         if len(self.data_cache) == 0:
+            _log.debug("Data cache is empty, cannot calculate power rate of change - RETURN")
             return
 
         y_values = np.array([item[1] for item in self.data_cache])
@@ -170,9 +150,11 @@ class DoDataScience:
 
         self.current_power_last_15mins_avg = avg_rate_of_change
         self.current_power_lv_rate_of_change = current_rate_of_change
+        _log.debug("Power rate of change calculated.")
 
     async def check_percentiles(self, current_value):
         if len(self.data_cache) == 0:
+            _log.debug("Data cache is empty, cannot check percentiles.")
             return False, False
 
         y_values = np.array([item[1] for item in self.data_cache])
@@ -182,6 +164,7 @@ class DoDataScience:
         is_below_30th = current_value < percentile_30
         is_above_90th = current_value > percentile_90
 
+        _log.debug("Percentiles checked.")
         return is_below_30th, is_above_90th
 
     async def train_model_thread_async(app):
@@ -190,7 +173,7 @@ class DoDataScience:
 
     async def train_model_thread(self):
         try:
-            print("Fit Model Called!")
+            _log.debug("Fitting the model.")
             X, Y = self.create_dataset(np.array([item[1] for item in self.data_cache]))
 
             start_time = time.time()
@@ -200,70 +183,77 @@ class DoDataScience:
             self.total_training_time_minutes = (time.time() - start_time) / 60
             self.last_train_time = datetime.now()
 
-            print(
-                f"Model Trained Success Minutes: \n{self.total_training_time_minutes:.2f}"
+            _log.debug(
+                f"Model trained successfully in {self.total_training_time_minutes:.2f} minutes on {self.last_train_time}."
             )
 
         except Exception as e:
-            print(f"An error occurred during the model training: {e}")
-            if DEBUG_MODE:
+            _log.debug(f"An error occurred during the model training: {e}")
+            if _debug:
                 exit(1)
 
     async def run_forecasting_cycle(self):
-        data_available = await self.fetch_and_store_data()
-        if not data_available:
-            print("Data not available. Returning early.")
-            return
 
-        now = datetime.now()
-        data_cache_len = len(self.data_cache)
+        while True:
 
-        if DEBUG_MODE:
-            print("Data Cache Length: ", data_cache_len)
-            print("Current Hour: ", now.hour)
-            print("Current Minute: ", now.minute)
-            print("Training Started Today: ", self.training_started_today)
-            print("Model Availability: ", await self.get_if_a_model_is_available())
-            print(
-                f"Model training time: {self.total_training_time_minutes:.2f} minutes on {self.last_train_time}"
-            )
+            await asyncio.sleep(INTERVAL)
+            
+            data_available = await self.fetch_and_store_data()
+            if not data_available:
+                _log.debug("Data not available - CONTINUE")
+                continue
 
-        if not self.data_cache:
-            print("Data Cache is empty - RETURN")
-            return
+            now = datetime.now()
+            data_cache_len = len(self.data_cache)
 
-        data_cache_lv = self.data_cache[-1][1]
-        if DEBUG_MODE:
-            print("Data Cache last value: ", data_cache_lv)
+            if _debug:
+                _log.debug("Data Cache Length: %s", data_cache_len)
+                _log.debug("Current Hour: %s", now.hour)
+                _log.debug("Current Minute: %s", now.minute)
+                _log.debug("Training Started Today: %s", self.training_started_today)
+                _log.debug("Model Availability: %s", await self.get_if_a_model_is_available())
+                _log.debug(
+                    "Model training time: %.2f minutes on %s",
+                    self.total_training_time_minutes,
+                    self.last_train_time,
+                )
 
-        if data_cache_lv == -1.0:
-            print("data_cache_lv == -1.0 - RETURN")
-            return
+            if not self.data_cache:
+                _log.debug("Data Cache is empty - CONTINUE")
+                continue
 
-        if data_cache_len < 65:
-            print("data_cache_len < 65 - RETURN")
-            return
+            data_cache_lv = self.data_cache[-1][1]
+            if _debug:
+                _log.debug("Data Cache last value: %s", data_cache_lv)
 
-        if now.hour == self.model_train_hour and not self.training_started_today:
-            # Start model training asynchronously
-            await self.train_model_thread_async(self)
-            self.training_started_today = True
-        elif now.hour == 1:
-            self.training_started_today = False
+            if data_cache_lv == -1.0:
+                _log.debug("data_cache_lv == -1.0 - CONTINUE")
+                continue
 
-        if not self.get_if_a_model_is_available():
-            print("Model not trained yet, no data science - RETURN")
-            return
+            if data_cache_len < 65:
+                _log.debug("data_cache_len < 65 - CONTINUE")
+                continue
 
-        y = np.array([item[1] for item in self.data_cache])
-        self.forecasted_value_60 = self.model.predict(y[-60:].reshape(1, -1))[0]
-        self.set_one_hr_future_pwr(self.forecasted_value_60)
+            if now.hour == self.model_train_hour and not self.training_started_today:
+                # Start model training asynchronously
+                await self.train_model_thread_async(self)
+                self.training_started_today = True
+            elif now.hour == 1:
+                self.training_started_today = False
 
-        self.calc_power_rate_of_change()
-        self.set_power_rate_of_change(self.current_power_lv_rate_of_change)
+            if not self.get_if_a_model_is_available():
+                _log.debug("Model not trained yet, no data science - CONTINUE")
+                continue
 
-        self.is_valley, self.is_peak = self.check_percentiles(data_cache_lv)
-        self.set_power_state_based_on_peak_valley()
+            y = np.array([item[1] for item in self.data_cache])
+            self.forecasted_value_60 = self.model.predict(y[-60:].reshape(1, -1))[0]
+            self.one_hr_future_pwr_lv(self.forecasted_value_60)
+
+            self.calc_power_rate_of_change()
+            self.power_rate_of_change_lv(self.current_power_lv_rate_of_change)
+
+            self.is_valley, self.is_peak = self.check_percentiles(data_cache_lv)
+            self.set_power_state_based_on_peak_valley()
 
 
 async def main():
@@ -275,7 +265,7 @@ async def main():
     input_power = AnalogValueObject(
         objectIdentifier=("analogValue", 1),
         objectName="input-power-meter",
-        presentValue=-1.0,
+        presentValue=DEFAULT_PV,
         statusFlags=[0, 0, 0, 0],
         covIncrement=1.0,
         description="writeable input for app buildings electricity power value",
@@ -284,7 +274,7 @@ async def main():
     one_hr_future_pwr = AnalogValueObject(
         objectIdentifier=("analogValue", 2),
         objectName="one-hour-future-power",
-        presentValue=-1.0,
+        presentValue=DEFAULT_PV,
         statusFlags=[0, 0, 0, 0],
         covIncrement=1.0,
         description="electrical power one hour into the future",
@@ -293,7 +283,7 @@ async def main():
     power_rate_of_change = AnalogValueObject(
         objectIdentifier=("analogValue", 3),
         objectName="power-rate-of-change",
-        presentValue=-1.0,
+        presentValue=DEFAULT_PV,
         statusFlags=[0, 0, 0, 0],
         covIncrement=1.0,
         description="current electrical power rate of change",
@@ -333,13 +323,23 @@ async def main():
     app.add_object(high_load_bv)
     app.add_object(low_load_bv)
 
-    asyncio.create_task(app.run_forecasting_cycle())
+    return app  
 
-    await asyncio.Future()
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        loop = asyncio.get_event_loop()
+        app = loop.run_until_complete(main())
+        
+        tasks = [
+            app.run_forecasting_cycle(),
+            app.update_bacnet_api()
+        ]
+        
+        loop.run_until_complete(asyncio.gather(*tasks))
+        
     except KeyboardInterrupt:
         if _debug:
             _log.debug("keyboard interrupt")
+
+

@@ -8,31 +8,34 @@ This project offers an innovative approach by merging BACnet server capabilities
 * **High & Low Load Indicators** : The BACnet Binary Values (BVs) are set to indicate high and low electrical usage based on the 90th and 30th percentiles respectively. This statistical approach ensures accurate indications of peak and low power consumption times.
 * **Operational Technology (OT) Control System Integration** : Especially designed for buildings equipped with an OT control system. By using the forecasted values, the system can act preemptively to limit excess power usage and reduce demand spikes.
 
-## Requirements
-
-- Python 3.x
-- BACpypes library
-
 ## Usage
 **BACnet Server Analog Value Points**
 1. `input-power-meter` (writeable)
 2. `one-hour-future-power` (readonly)
 3. `power-rate-of-change` (readonly)
 
-## Installation
+## Requirements
+- Python 3.10.x or newer
+- BACpypes3 and scikit-learn libraries
 
-1. pip install
+## Installation
+1. **pip install Python libraries**
 
 ```bash
 pip install scikit-learn bacpypes
 ```
 
-2. Clone repo, cd into into `open-dsm/simple_bacnet_server`
-
-3. run or test script:
-
+2. **Clone repo, cd into into project directory**
 ```bash
-$ python bacnet_server.py
+git clone https://github.com/bbartling/open-dsm.git
+```
+```bash
+cd open-dsm/simple_bacnet_server
+```
+
+3. (Optional) **run or test script from Linux terminal**
+```bash
+python bacnet_server.py
 ```
 
 
