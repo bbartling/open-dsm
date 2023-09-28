@@ -1,0 +1,20 @@
+# build docker file with:
+sudo docker build -t bacpypes-legacy-open-dsm .
+
+# run docker file:
+sudo docker run -d --network="host" --name my-open-dsm-bacpypes-container bacpypes-legacy-open-dsm
+
+# stop docker container:
+sudo docker stop my-open-dsm-bacpypes-container
+
+# remove docker container if you want to make change to .py file rebuild and run again:
+sudo docker rm my-open-dsm-bacpypes-container
+
+# tail logs:
+sudo docker logs -f my-open-dsm-bacpypes-container
+
+# use with no Docker
+pip install bacpypes scikit-learn
+
+# run script
+python bacnet_server.py
