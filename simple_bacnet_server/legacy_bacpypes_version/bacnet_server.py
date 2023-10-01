@@ -174,7 +174,7 @@ class PowerMeterForecast:
         self.rolling_avg_data.append((timestamp, usage_kW))
         self.calculate_rolling_average()
 
-    def calculate_rolling_average(self, window_size=60):
+    def calculate_rolling_average(self, window_size=5):
         if len(self.rolling_avg_data) < window_size:
             return
         usage_values = np.array([item[1] for item in self.rolling_avg_data])
