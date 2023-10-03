@@ -26,11 +26,13 @@ register_object_type(AnalogValueCmdObject, vendor_id=999)
 INTERVAL = 60.0
 MODEL_TRAIN_HOUR = 0
 
+
 @bacpypes_debugging
 class SampleApplication(
     BIPSimpleApplication, ReadWritePropertyMultipleServices, ChangeOfValueServices
 ):
     pass
+
 
 @bacpypes_debugging
 class DoDataScience(RecurringTask):
@@ -62,11 +64,14 @@ class DoDataScience(RecurringTask):
         if _debug:
             _log.debug("input_power: %s", self.input_power.presentValue)
             _log.debug("one_hr_future_pwr: %s", self.one_hr_future_pwr.presentValue)
-            _log.debug("power_rate_of_change: %s", self.power_rate_of_change.presentValue)
+            _log.debug(
+                "power_rate_of_change: %s", self.power_rate_of_change.presentValue
+            )
             _log.debug("high_load_bv: %s", self.high_load_bv.presentValue)
             _log.debug("low_load_bv: %s", self.low_load_bv.presentValue)
 
         self.power_forecast.run_forecasting_cycle()
+
 
 class BacnetServer:
     def __init__(self, ini_file, address):
@@ -134,6 +139,7 @@ class BacnetServer:
     def run(self):
         run()
 
+
 class PowerMeterForecast:
     def __init__(
         self,
@@ -158,6 +164,8 @@ class PowerMeterForecast:
         self.forecasted_value_60 = None
         self.is_valley = None
         self.is_peak = None
+        self.peak_valley_last_adjustment_time = None
+        self.peak_valley_req_time_delta = 900  # seconds
 
         self.model = None
         self.last_train_time = None
@@ -178,8 +186,10 @@ class PowerMeterForecast:
         if len(self.rolling_avg_data) < window_size:
             return
         usage_values = np.array([item[1] for item in self.rolling_avg_data])
-        rolling_avg = np.convolve(usage_values, np.ones(window_size) / window_size, mode='valid')
-        self.rolling_avg_data = self.rolling_avg_data[-len(rolling_avg):]
+        rolling_avg = np.convolve(
+            usage_values, np.ones(window_size) / window_size, mode="valid"
+        )
+        self.rolling_avg_data = self.rolling_avg_data[-len(rolling_avg) :]
         for i in range(len(rolling_avg)):
             self.rolling_avg_data[i] = (self.rolling_avg_data[i][0], rolling_avg[i])
 
@@ -212,18 +222,30 @@ class PowerMeterForecast:
         return self.power_rate_of_change.presentValue
 
     def set_power_state_based_on_peak_valley(self):
-        if self.is_peak:
-            self.set_high_load_bv("active")
-            self.set_low_load_bv("inactive")
-            _log.debug("Setting BVs to Peak!")
-        elif self.is_valley:
-            self.set_high_load_bv("inactive")
-            self.set_low_load_bv("active")
-            _log.debug("Setting BVs to Valley!")
-        else:
-            self.set_high_load_bv("inactive")
-            self.set_low_load_bv("inactive")
-            _log.debug("Setting BVs to Valley!")
+        # Check if the last adjustment time is None or if enough time has passed
+        # to prevent short cycling on peak or valley BACnet BV
+        if (
+            self.peak_valley_last_adjustment_time is None
+            or (datetime.now() - self.peak_valley_last_adjustment_time).total_seconds()
+            >= self.peak_valley_req_time_delta
+        ):
+            if self.is_peak:
+                self.set_high_load_bv("active")
+                self.set_low_load_bv("inactive")
+                _log.debug("Setting BVs to Peak!")
+
+            elif self.is_valley:
+                self.set_high_load_bv("inactive")
+                self.set_low_load_bv("active")
+                _log.debug("Setting BVs to Valley!")
+
+            else:
+                self.set_high_load_bv("inactive")
+                self.set_low_load_bv("inactive")
+                _log.debug("Setting BVs to Valley!")
+
+            # Update the last adjustment time
+            self.peak_valley_last_adjustment_time = datetime.now()
 
     def create_dataset(self, y, input_window=60, forecast_horizon=1):
         dataX, dataY = [], []
@@ -249,7 +271,7 @@ class PowerMeterForecast:
         self.data_cache.append((timestamp, new_data))
 
         if len(self.data_cache) > self.CACHE_LIMIT:
-            self.data_cache = self.data_cache[-self.CACHE_LIMIT:]
+            self.data_cache = self.data_cache[-self.CACHE_LIMIT :]
 
         return True
 
@@ -293,13 +315,13 @@ class PowerMeterForecast:
 
             self.total_training_time_minutes = (time.time() - start_time) / 60
             self.last_train_time = datetime.now()
-            
+
             _log.debug(
                 "Model training time: %.2f minutes on %s",
                 self.total_training_time_minutes,
                 self.last_train_time,
             )
-            
+
         except Exception as e:
             _log.debug("An error occurred during the model training: %s", e)
             if _debug:
@@ -363,23 +385,25 @@ class PowerMeterForecast:
         self.is_valley, self.is_peak = self.check_percentiles(data_cache_lv)
         self.set_power_state_based_on_peak_valley()
 
+
 def get_ip_address():
     try:
         output = subprocess.check_output(["ip", "route", "get", "1"]).decode("utf-8")
         for line in output.split("\n"):
             if "src" in line:
                 return line.strip().split("src")[1].split()[0]
-            
+
     except Exception as e:
         _log.debug("An error occurred:  %s", e)
         return None
+
 
 def update_ini_with_constants(new_address):
     config = configparser.ConfigParser()
     config.read("BACpypes.ini")
     if "BACpypes" not in config:
         config["BACpypes"] = {}
-    
+
     config["BACpypes"]["address"] = f"{new_address}/24"
     config["BACpypes"]["objectname"] = "OpenDsm"
     config["BACpypes"]["objectidentifier"] = "500001"
@@ -390,15 +414,16 @@ def update_ini_with_constants(new_address):
     with open("BACpypes.ini", "w") as configfile:
         config.write(configfile)
 
+
 def main():
     detected_ip_address = get_ip_address()
     use_constants = False
     if detected_ip_address:
-        _log.debug("Detected IP Address:  %s",detected_ip_address)
+        _log.debug("Detected IP Address:  %s", detected_ip_address)
         use_constants = True
     else:
         _log.debug("Unable to find IP address. Using default INI values.")
-    
+
     if use_constants:
         update_ini_with_constants(detected_ip_address)
 
@@ -407,6 +432,7 @@ def main():
 
     bacnet_server = BacnetServer(args.ini, args.ini.address)
     bacnet_server.run()
+
 
 if __name__ == "__main__":
     main()

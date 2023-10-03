@@ -22,7 +22,7 @@ This project offers an innovative approach by merging BACnet server capabilities
 1. **pip install Python libraries**
 
 ```bash
-pip install scikit-learn bacpypes
+pip install scikit-learn bacpypes3
 ```
 
 2. **Clone repo, cd into into project directory**
@@ -61,7 +61,7 @@ python bacnet_server.py
    [Service]
    User=your_username
    WorkingDirectory=/home/your_username/open-dsm/simple_bacnet_server
-   ExecStart=/usr/bin/python3 bacnet_server.py
+   ExecStart=/usr/bin/python3 bacnet_server.py --debug
    Restart=always
 
    [Install]
@@ -101,47 +101,48 @@ python bacnet_server.py
    ```bash
    sudo systemctl status bacnet_server.service
    ```
-   
-# Docker Installation to run on Raspi Pi Hardware
 
-### Installation Steps inside the `simple_bacnet_server` directory
-
-1. **Install docker on Pi**
-   * https://docs.docker.com/engine/install/raspberry-pi-os/
-
-
-2. **Build docker container**
+8. **Tail Linux Service Logs**
+   See debug print statements:
    ```bash
-	sudo docker build -t bacnet-server .
-   ```
-   
-3. **Start docker container**
-   ```bash
-	sudo docker run -d -p 47808:47808/udp --name my-bacpypes-container bacnet-server
-   ```
-### Troubleshooting notes for Docker and tailing logs
-
-* **stop docker container**
-   ```bash
-   sudo docker stop my-bacpypes-container
+   sudo journalctl -u bacnet_server.service -f
    ```
 
-* **remove docker container if you want to make change to .py file rebuild and run again**
+   * Below is an example that updates at 1-minute intervals. The presence of the value `30286.0` confirms that the control system is successfully writing to the `input-power-meter` point in the BACnet API. If the control system were not writing properly, the default BACnet present value would be `-1.0`.:
+
    ```bash
-   sudo docker rm my-bacpypes-container
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:input_power: 30286.0
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:one_hr_future_pwr: -1.0
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:power_rate_of_change: -1.0
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:high_load_bv: inactive
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:low_load_bv: inactive
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Data Cache Length: 3
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Current Hour: 9
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Current Minute: 28
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Training Started Today: False
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Model Availability: False
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Model training time: 0.00 minutes on None
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Data Cache last value: 30286.0
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:data_cache_len < 65 - RETURN
    ```
 
-* **view logs**
+### **Reload Linux service if modifiations are required to the .py file and or Linux service**
+   Reload the systemd configuration. This tells systemd to recognize your changes:
    ```bash
-   sudo docker logs my-bacpypes-container
+   sudo systemctl daemon-reload
    ```
 
-* **tail logs**
+   Restart your service to apply the changes:
    ```bash
-   sudo docker logs -f my-bacpypes-container
+   sudo systemctl restart bacnet_server.service
    ```
 
-* **pipe logs to less**
+   Check the status to ensure it's running as expected:
    ```bash
-   sudo docker logs my-bacpypes-container | less
+   sudo systemctl status bacnet_server.service
+   ```
+
+   See debug print statements:
+   ```bash
+   `sudo journalctl -u bacnet_server.service -f`
    ```

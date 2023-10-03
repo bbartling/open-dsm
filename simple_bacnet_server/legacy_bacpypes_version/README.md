@@ -105,7 +105,7 @@ python bacnet_server.py
 8. **Tail Linux Service Logs**
    See debug print statements:
    ```bash
-   `sudo journalctl -u bacnet_server.service -f`
+   sudo journalctl -u bacnet_server.service -f
    ```
 
    * Below is an example that updates at 1-minute intervals. The presence of the value `30286.0` confirms that the control system is successfully writing to the `input-power-meter` point in the BACnet API. If the control system were not writing properly, the default BACnet present value would be `-1.0`.:
