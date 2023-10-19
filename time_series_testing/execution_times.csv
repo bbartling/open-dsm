@@ -1,6 +1,0 @@
-Model,Execution Time (Seconds)
-MLPRegressor,6276.439391374588
-RandomForestRegressor,35259.65834879875
-KNeighborsRegressor,8013.536809921265
-AdaBoostRegressor,7975.343664646149
-GradientBoostingRegressor,14216.925289154053

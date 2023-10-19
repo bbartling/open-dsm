@@ -1,5 +1,7 @@
 import subprocess
 import configparser
+import csv
+
 from bacpypes.debugging import bacpypes_debugging, ModuleLogger
 from bacpypes.consolelogging import ConfigArgumentParser
 from bacpypes.core import run
@@ -182,7 +184,7 @@ class PowerMeterForecast:
         self.rolling_avg_data.append((timestamp, usage_kW))
         self.calculate_rolling_average()
 
-    def calculate_rolling_average(self, window_size=5):
+    def calculate_rolling_average(self, window_size=60):
         if len(self.rolling_avg_data) < window_size:
             return
         usage_values = np.array([item[1] for item in self.rolling_avg_data])
@@ -254,7 +256,20 @@ class PowerMeterForecast:
         for i in range(length):
             dataX.append(y[i : (i + input_window)])
             dataY.append(y[i + input_window : i + input_window + forecast_horizon])
-        return np.array(dataX), np.array(dataY)
+        
+        dataX = np.array(dataX)
+        dataY = np.array(dataY)
+        
+        self.save_to_csv(dataX, dataY, 'data.csv')
+        
+        return dataX, dataY
+    
+    def save_to_csv(self, dataX, dataY, filename):
+        with open(filename, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            for i in range(len(dataX)):
+                row = list(dataX[i]) + list(dataY[i])
+                writer.writerow(row)
 
     def poll_sensor_data(self, sensor_reading=None):
         sensor_reading = self.get_input_power()
