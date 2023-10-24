@@ -15,8 +15,12 @@ from bacpypes.service.object import ReadWritePropertyMultipleServices
 from bacpypes.primitivedata import Real
 
 import numpy as np
-
-from sklearn.neural_network import MLPRegressor
+import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from datetime import datetime
 import threading, time
 
@@ -27,7 +31,9 @@ register_object_type(AnalogValueCmdObject, vendor_id=999)
 
 INTERVAL = 60.0
 MODEL_TRAIN_HOUR = 0
-
+USE_CACHE_ON_START = True
+DAYS_TO_CACHE = 365 #modify later for SQLite db
+LSTM_SEQUENCE_LENGTH = 120
 
 @bacpypes_debugging
 class SampleApplication(
@@ -61,6 +67,11 @@ class DoDataScience(RecurringTask):
             self.high_load_bv,
             self.low_load_bv,
         )
+        if USE_CACHE_ON_START:
+            _log.debug(f"USE_CACHE_ON_START True - Starting CSV file data loading.")
+            self.power_forecast.load_data_from_csv(on_start=True)
+        else:
+            _log.debug(f"USE_CACHE_ON_START False - Skipping CSV file data loading.")
 
     def process_task(self):
         if _debug:
@@ -157,9 +168,8 @@ class PowerMeterForecast:
         self.high_load_bv = high_load_bv
         self.low_load_bv = low_load_bv
 
-        self.rolling_avg_data = []
-        self.data_counter = 0
-        self.data_cache = []
+        self.data_is_available = False
+        self.data_cache = [] # very small holds LSTM seq data only
 
         self.current_power_last_15mins_avg_rate_of_change = None
         self.current_power_lv_rate_of_change = None
@@ -169,31 +179,17 @@ class PowerMeterForecast:
         self.peak_valley_last_adjustment_time = None
         self.peak_valley_req_time_delta = 900  # seconds
 
+        # Sequence lengths to experiment with in LSTM
+        self.sequence_length = LSTM_SEQUENCE_LENGTH
+        self.best_mse = float("inf")
+        self.rmse = 0
+        self.scaler = MinMaxScaler(feature_range=(0, 1))
         self.model = None
         self.last_train_time = None
         self.training_started_today = False
         self.total_training_time_minutes = 0
         self.model_train_hour = MODEL_TRAIN_HOUR
-
-        self.DAYS_TO_CACHE = 28
-        self.CACHE_LIMIT = 1440 * self.DAYS_TO_CACHE
-        self.SPIKE_THRESHOLD_POWER_PER_MINUTE = 20
-        self.BUILDING_POWER_SETPOINT = 20
-
-    def update_rolling_avg_data(self, timestamp, usage_kW):
-        self.rolling_avg_data.append((timestamp, usage_kW))
-        self.calculate_rolling_average()
-
-    def calculate_rolling_average(self, window_size=60):
-        if len(self.rolling_avg_data) < window_size:
-            return
-        usage_values = np.array([item[1] for item in self.rolling_avg_data])
-        rolling_avg = np.convolve(
-            usage_values, np.ones(window_size) / window_size, mode="valid"
-        )
-        self.rolling_avg_data = self.rolling_avg_data[-len(rolling_avg) :]
-        for i in range(len(rolling_avg)):
-            self.rolling_avg_data[i] = (self.rolling_avg_data[i][0], rolling_avg[i])
+        self.model_is_training = False
 
     def set_one_hr_future_pwr(self, value):
         self.one_hr_future_pwr.presentValue = Real(value)
@@ -218,7 +214,7 @@ class PowerMeterForecast:
         return self.one_hr_future_pwr.presentValue
 
     def get_if_a_model_is_available(self):
-        return hasattr(self.model, "coefs_")
+        return self.model is not None
 
     def get_power_rate_of_change(self):
         return self.power_rate_of_change.presentValue
@@ -249,27 +245,44 @@ class PowerMeterForecast:
             # Update the last adjustment time
             self.peak_valley_last_adjustment_time = datetime.now()
 
-    def create_dataset(self, y, input_window=60, forecast_horizon=1):
-        dataX, dataY = [], []
-        length = len(y) - input_window - forecast_horizon + 1
-        _log.debug("LENGTH: ", length)
-        for i in range(length):
-            dataX.append(y[i : (i + input_window)])
-            dataY.append(y[i + input_window : i + input_window + forecast_horizon])
-        
-        dataX = np.array(dataX)
-        dataY = np.array(dataY)
-        
-        self.save_to_csv(dataX, dataY, 'data.csv')
-        
-        return dataX, dataY
-    
-    def save_to_csv(self, dataX, dataY, filename):
-        with open(filename, 'w', newline='') as csvfile:
+    def save_all_data_to_csv(self, filename="data.csv"):
+        with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            for i in range(len(dataX)):
-                row = list(dataX[i]) + list(dataY[i])
+            for data in self.data_cache:
+                timestamp, value = data
+                row = [timestamp.strftime("%Y-%m-%d %H:%M:%S.%f"), value]
                 writer.writerow(row)
+
+    def save_a_row_of_data_to_csv(self, timestamp, new_data, filename="data.csv"):
+        with open(filename, "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            row = [timestamp.strftime("%Y-%m-%d %H:%M:%S.%f"), new_data]
+            writer.writerow(row)
+
+    def load_data_from_csv(self, filename="data.csv", on_start=False):
+        local_cache = []
+
+        try:
+            with open(filename, "r") as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    timestamp = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
+                    value = row[1]
+                    local_cache.append((timestamp, value))
+        except FileNotFoundError:
+            _log.debug(f"CSV file '{filename}' not found. Skipping data loading.")
+        except Exception as e:
+            _log.error(f"Error loading data from CSV: {e}")
+
+        # Check if data is available based on the sequence length
+        self.data_is_available = len(local_cache) >= self.sequence_length
+
+        if on_start:
+            # Fill self.data_cache with the last 120 floats
+            if len(local_cache) >= self.sequence_length:
+                self.data_cache = local_cache[-self.sequence_length:]
+
+        return local_cache
 
     def poll_sensor_data(self, sensor_reading=None):
         sensor_reading = self.get_input_power()
@@ -285,64 +298,238 @@ class PowerMeterForecast:
 
         self.data_cache.append((timestamp, new_data))
 
-        if len(self.data_cache) > self.CACHE_LIMIT:
-            self.data_cache = self.data_cache[-self.CACHE_LIMIT :]
+        if len(self.data_cache) > self.sequence_length:
+            self.data_cache = self.data_cache[-self.sequence_length :]
+
+        self.save_a_row_of_data_to_csv(timestamp, new_data)
 
         return True
 
     def calc_power_rate_of_change(self):
-        if len(self.data_cache) == 0:
-            return
+        """
+        Calcs current readings electrical rate of change
+        Is BACnet Analog Value object for controls sys logic
 
-        y_values = np.array([item[1] for item in self.data_cache])
+        Returns:
+        - float
+        """
+
+        # Load ALL data from the CSV source
+        data = self.load_data_from_csv()
+
+        if len(data) < 2:
+            return 0.0  # Not enough data points to calculate rate of change
+
+        timestamps = [item[0] for item in data]
+        y_values = [
+            float(item[1]) for item in data
+        ]  # Convert y_values to float
+
+        # Convert timestamps to datetime objects
+        timestamps = [
+            ts
+            if isinstance(ts, datetime)
+            else datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f")
+            for ts in timestamps
+        ]
+
+        # Calculate time differences in seconds
+        time_diffs = [
+            (timestamps[i] - timestamps[i - 1]).total_seconds()
+            for i in range(1, len(timestamps))
+        ]
+
+        # Calculate rate of change
         gradient = np.diff(y_values)
-        current_rate_of_change = gradient[-1] if len(gradient) > 0 else 0
+        current_rate_of_change = gradient[-1] / time_diffs[-1]
 
-        if len(gradient) >= 15:
-            avg_rate_of_change = (gradient[-1] - gradient[-15]) / 15.0
+        if len(time_diffs) >= 15:
+            avg_rate_of_change = (gradient[-1] - gradient[-15]) / sum(time_diffs[-15:])
         else:
             avg_rate_of_change = current_rate_of_change
 
         self.current_power_last_15mins_avg = avg_rate_of_change
         self.current_power_lv_rate_of_change = current_rate_of_change
+        return current_rate_of_change
 
     def check_percentiles(self, current_value):
-        if len(self.data_cache) == 0:
-            return False, False
+        """
+        Used to predict electrical load profile peak or valley
+        For battery or EV charging or peak shaving etc
+        Is BACnet object for peak or valley
 
-        y_values = np.array([item[1] for item in self.data_cache])
+        Returns:
+        - bool of percentiles of cached data
+        """
+        # Load ALL data from the CSV source
+        data = self.load_data_from_csv()
+        
+        if len(data) < 2:
+            return False, False  # Not enough data points to calculate percentiles
+
+        # Extract y-values directly without dealing with timestamps
+        y_values = [float(item[1]) for item in data]  # Updated line
+
+        # Calculate percentiles using numpy
         percentile_30 = np.percentile(y_values, 30)
         percentile_90 = np.percentile(y_values, 90)
 
+        # Calculate percentiles relative to the current value
         is_below_30th = current_value < percentile_30
         is_above_90th = current_value > percentile_90
 
         return is_below_30th, is_above_90th
 
+    def scale_data(self):
+        """
+        Scale the input data using the MinMaxScaler for LSTM training
+
+        Returns:
+        - scaled_data: Scaled data
+        """
+        _log.debug("scale data hit")
+        
+        data = self.load_data_from_csv()
+
+        # Extract float values
+        float_values = [float(item[1]) for item in data]
+
+        # Scale float values
+        float_values_array = np.array(float_values).reshape(-1, 1)
+        self.scaler_float = MinMaxScaler()  # Store the scaler as an instance attribute
+        scaled_float_values = self.scaler_float.fit_transform(float_values_array)
+
+        _log.debug(
+            f"scaled_float_values shape: {scaled_float_values.shape}, \
+            scaled_float_values type: {type(scaled_float_values)}"
+        )
+
+        return scaled_float_values
+
+    def create_dataset(self, data, seq_length, pred_length):
+        """
+        Called when LSTM is trained
+        Saves data to CSV format
+
+        Returns:
+        - numpy arrays of X, y
+        """
+        _log.debug(f"data shape: {data.shape}, data type: {type(data)}")
+        
+        X, y = [], []
+        for i in range(seq_length, len(data) - pred_length):
+            X.append(data[i - seq_length : i, 0])
+            y.append(data[i : i + pred_length, 0])
+
+        dataX = np.array(X)
+        dataY = np.array(y)
+
+        _log.debug(f"dataX shape: {dataX.shape}, dataX type: {type(dataX)}")
+        _log.debug(f"dataY shape: {dataY.shape}, dataY type: {type(dataY)}")
+
+        return dataX, dataY
+
     def train_model_thread(self):
+        best_mse = float("inf")
+        best_length = self.sequence_length
+        self.model_is_training = True
+
         try:
             _log.debug("Fit Model Called!")
-            X, Y = self.create_dataset(np.array([item[1] for item in self.data_cache]))
 
-            start_time = time.time()
-            self.model = MLPRegressor()
-            self.model.fit(X, Y.ravel())
-
-            self.total_training_time_minutes = (time.time() - start_time) / 60
-            self.last_train_time = datetime.now()
-
+            # Scale the data using the same MinMaxScaler
+            # all data comes from CSV file
+            scaled_data = self.scale_data()
             _log.debug(
-                "Model training time: %.2f minutes on %s",
-                self.total_training_time_minutes,
-                self.last_train_time,
+                f"scaled_data type: {type(scaled_data)}, scaled_data value: {scaled_data}"
             )
 
+            # Load your preprocessed data for the fixed sequence length
+            X, Y = self.create_dataset(
+                scaled_data, seq_length=best_length, pred_length=60
+            )
+
+            _log.debug(f"X shape: {X.shape}, Y shape: {Y.shape}")
+            _log.debug(f"X type: {type(X)}, Y type: {type(Y)}")
+
+            X = np.reshape(X, (X.shape[0], X.shape[1], 1))
+
+            # Split data into train and test
+            train_size = int(0.67 * len(X))
+            X_train, y_train = X[:train_size], Y[:train_size]
+            X_test, y_test = X[train_size:], Y[train_size:]
+
+            _log.debug(
+                f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}"
+            )
+            _log.debug(f"X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
+
+            # Define and compile your LSTM model
+            model = Sequential()
+            model.add(LSTM(50, return_sequences=True, input_shape=(best_length, 1)))
+            model.add(LSTM(50, return_sequences=False))
+            model.add(Dense(60))
+            model.compile(optimizer="adam", loss="mean_squared_error")
+
+            # Define the EarlyStopping callback with patience
+            early_stop = EarlyStopping(
+                monitor="val_loss", patience=5, verbose=1, restore_best_weights=True
+            )
+
+            # Define the ModelCheckpoint callback to save the best model
+            model_checkpoint = ModelCheckpoint(
+                "best_model.h5", monitor="val_loss", save_best_only=True
+            )
+
+            start_time = time.time()
+
+            # Train LSTM model with validation data and early stopping
+            history = model.fit(
+                X_train,
+                y_train,
+                batch_size=64,
+                epochs=200,
+                validation_data=(X_test, y_test),
+                callbacks=[early_stop, model_checkpoint],
+            )
+
+            # Validate model
+            predictions = model.predict(X_test)
+            _log.debug(f"predictions shape: {predictions.shape}")
+
+            predictions = self.scaler_float.inverse_transform(predictions)
+            y_test_original = self.scaler_float.inverse_transform(y_test)
+            _log.debug(f"y_test_original shape: {y_test_original.shape}")
+
+            mse = mean_squared_error(y_test_original, predictions)
+            self.rmse = np.sqrt(mse)
+
         except Exception as e:
-            _log.debug("An error occurred during the model training: %s", e)
+            _log.debug(f"An error occurred during the model training: {e}")
             if _debug:
                 exit(1)
 
+        self.total_training_time_minutes = (time.time() - start_time) / 60
+        self.last_train_time = datetime.now()
+        self.rmse = np.sqrt(best_mse)
+
+        # Load the best model
+        self.model = tf.keras.models.load_model("best_model.h5")  # Load the best model
+        _log.debug(f"Model Training Success")
+        self.model_is_training = False
+
     def run_forecasting_cycle(self):
+        """
+        Executes a forecasting cycle, performing the following steps:
+        1. Fetches and stores data, returning early if no data is available.
+        2. Checks if the data cache meets the required length for forecasting.
+        3. Initiates model training at a specific hour, if not already started.
+        4. Once the LSTM model is trained:
+        - Forecasts the next hour's power usage values.
+        - Calculates the rate of change of power usage.
+        - Identifies peak and valley points in the power usage distribution.
+        - Sets the power state based on the identified peak and valley points.
+        """
         data_available = self.fetch_and_store_data()
         if not data_available:
             _log.debug("Data not available. Returning early.")
@@ -355,10 +542,17 @@ class PowerMeterForecast:
             _log.debug("Data Cache Length: %s", data_cache_len)
             _log.debug("Current Hour: %s", now.hour)
             _log.debug("Current Minute: %s", now.minute)
+            _log.debug(
+                "Model Train Hour: %s %s",
+                self.model_train_hour,
+                self.model_train_hour + 1,
+            )
             _log.debug("Training Started Today: %s", self.training_started_today)
             _log.debug("Model Availability: %s", self.get_if_a_model_is_available())
+            _log.debug("Model RMSE: %.2f", self.rmse)
             _log.debug(
-                "Model training time: %.2f minutes on %s",
+                "Model training time for sequence length %d: %.2f minutes on %s",
+                self.sequence_length,
                 self.total_training_time_minutes,
                 self.last_train_time,
             )
@@ -375,23 +569,39 @@ class PowerMeterForecast:
             _log.debug("data_cache_lv == -1.0 - RETURN")
             return
 
-        if data_cache_len < 65:
-            _log.debug("data_cache_len < 65 - RETURN")
+        if not self.data_is_available:
+            _log.debug("self.data_is_available is False - RETURN")
             return
 
-        if now.hour == self.model_train_hour and not self.training_started_today:
+        if (
+            now.hour == self.model_train_hour
+            and not self.training_started_today
+            and not self.model_is_training
+        ):
+            _log.debug("train model thread GO!")
             model_training_thread = threading.Thread(target=self.train_model_thread)
             model_training_thread.start()
             self.training_started_today = True
-        elif now.hour == 1:
+
+        elif now.hour == self.model_train_hour + 1:
             self.training_started_today = False
 
         if not self.get_if_a_model_is_available():
             _log.debug("Model not trained yet, no data science - RETURN")
             return
 
-        y = np.array([item[1] for item in self.data_cache])
-        self.forecasted_value_60 = self.model.predict(y[-60:].reshape(1, -1))[0]
+        # Only use the last `self.sequence_length` values from `data_cache` for forecasting
+        last_seq_vals = [item[1] for item in self.data_cache[-self.sequence_length:]]
+        last_seq_vals = np.array(last_seq_vals, dtype=float).reshape(1, self.sequence_length, 1)
+
+        forecast = self.model.predict(last_seq_vals)
+        forecast = self.scaler_float.inverse_transform(forecast)
+
+        # Retrieve the last forecasted value for electric reading one hour into the future
+        self.forecasted_value_60 = float(forecast[0][-1])
+
+        _log.debug("Last forecasted value: %s", self.forecasted_value_60)
+
         self.set_one_hr_future_pwr(self.forecasted_value_60)
 
         self.calc_power_rate_of_change()
@@ -446,6 +656,7 @@ def main():
     args = parser.parse_args()
 
     bacnet_server = BacnetServer(args.ini, args.ini.address)
+
     bacnet_server.run()
 
 

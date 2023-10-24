@@ -1,9 +1,15 @@
-# BACnet Server with Sci-kit Learn Integration
+# BACnet Server with Tensorflow integration
 
-This project offers an innovative approach by merging BACnet server capabilities with the power of scikit-learn, a popular machine learning library. By leveraging time series machine learning techniques, the server can predict electricity power values for the upcoming hour. This is invaluable for optimizing energy consumption, ensuring efficient building operations, and responding proactively to potential power spikes.
+This project introduces an innovative synergy between BACnet server capabilities and the formidable machine learning prowess of Keras, a powerful library seamlessly integrated into TensorFlow. Notably, an LSTM (Long Short-Term Memory) model is trained during overnight hours when electricity power levels are typically low. 
+This model becomes a critical asset for predicting electricity consumption values for the upcoming hour.
+
+As the dawn of a new day breaks, the trained LSTM model takes center stage within the BACnet application. 3
+It operates tirelessly, generating predictions for future power consumption every minute. 
+This real-time forecasting capability empowers the system to optimize energy usage, ensure the efficient functioning of building operations, and proactively respond to potential power fluctuations. 
+The culmination of these features contributes to a robust and intelligent BACnet application tailored for modern energy management needs.
 
 ## Features
-* **Time Series Forecasting** : Uses advanced machine learning techniques to forecast the power meter readings 1 hour into the future. This aids in understanding potential power spikes or lapses.
+* **Time Series Forecasting** : Uses simple LSTM machine learning techniques to forecast the power meter readings 1 hour into the future. This aids in understanding potential power spikes or lapses.
 * **Dynamic Model Training** : Trains a new model every midnight. This ensures that the model is always up-to-date, accommodating daily variations and subtle changes in the building's electricity usage patterns.
 * **High & Low Load Indicators** : The BACnet Binary Values (BVs) are set to indicate high and low electrical usage based on the 90th and 30th percentiles respectively. This statistical approach ensures accurate indications of peak and low power consumption times.
 * **Operational Technology (OT) Control System Integration** : Especially designed for buildings equipped with an OT control system. By using the forecasted values, the system can act preemptively to limit excess power usage and reduce demand spikes.
@@ -22,7 +28,7 @@ This project offers an innovative approach by merging BACnet server capabilities
 1. **pip install Python libraries**
 
 ```bash
-pip install scikit-learn bacpypes
+pip install scikit-learn bacpypes tensorflow
 ```
 
 2. **Clone repo, cd into into project directory**
@@ -144,5 +150,5 @@ python bacnet_server.py
 
    See debug print statements:
    ```bash
-   `sudo journalctl -u bacnet_server.service -f`
+   sudo journalctl -u bacnet_server.service -f
    ```
