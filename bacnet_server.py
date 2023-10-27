@@ -144,7 +144,7 @@ class BacnetServer:
             presentValue=-1.0,
             statusFlags=[0, 0, 0, 0],
             covIncrement=1.0,
-            description="current electrical power rate of change",
+            description="model training time in minutes",
         )
         self.app.add_object(self.model_training_time)
 
@@ -153,7 +153,7 @@ class BacnetServer:
             objectName="high-load-conditions",
             presentValue="inactive",
             statusFlags=[0, 0, 0, 0],
-            description="Peak power usage detected, shed loads if possible",
+            description="peak power usage detected, shed loads if possible",
         )
         self.app.add_object(self.high_load_bv)
 
@@ -162,7 +162,7 @@ class BacnetServer:
             objectName="low-load-conditions",
             presentValue="inactive",
             statusFlags=[0, 0, 0, 0],
-            description="Low power usage detected, charge TES or battery okay",
+            description="low power usage detected, charge TES or battery okay",
         )
         self.app.add_object(self.low_load_bv)
 
