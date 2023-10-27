@@ -1,44 +1,204 @@
-## Key Features
+## open-dsm
 
-This DSM (Demand Side Management) solution includes a BACnet server running on a Linux distribution of choice, providing several essential features for building automation and energy management:
+This project involves the development of a Demand Side Management (DSM) solution tailored for the edge environment within a building. The code emulates a BACnet server running on a Linux distribution of your choice, with the primary objective of offering essential features for the Building Automation System (BAS). These features enable the BAS to execute algorithms aimed at reducing demand charges for the building, managing battery systems, and facilitating electric vehicle PV charging.
 
-* **Electrical Power Forecasting:** The BACnet server can forecast a building's electrical power one hour into the future, enabling proactive load management strategies. Building proprietors and operators can efficiently plan and optimize energy usage, reducing costs and mitigating peak demand.
+When this application is executed, it functions as a discoverable BACnet device that seamlessly integrates into the BAS using the BACnet protocol. Integration is designed to be straightforward, requiring the same skillset used by BAS industry field technicians when setting up HVAC control systems. Once the application is integrated into the BAS, it becomes just another BACnet device within the Building Operations Technology (OT) LAN.
 
-* **Linux Device Integration:** Seamlessly integrate a small Linux device into the building's Operations Technology (OT) LAN. This Linux device acts as a recognized BACnet device and facilitates communication with the Building Automation System (BAS) using common BACnet setup practices. This integration enhances the BAS with advanced capabilities.
+To complete the integration, a BACnet field technician is responsible for inputting the building's electrical power meter value into the application using a writable BACnet point. Afterward, they can implement their choice of DSM logic alongside common BAS logic. Following this step, the BACnet server will manage the following points:
 
-* **Power Meter Integration:** To enable demand forecasting, the solution requires the integration of power meter data. This integration ensures accurate predictions and effective load management. Compatible with various power meters, including the user-friendly [eGauge](https://www.egauge.net/commercial-energy-monitor/) device, the solution simplifies configuration and data visualization. It supports protocols like Modbus, BACnet, or REST API. A prerequisite for using this app is that the building's power meter readings (kW) can be written to a writable BACnet point.
+**BACnet Server Analog Value Points**
+1. `input-power-meter` (writeable)
+2. `one-hour-future-power` (readonly)
+3. `power-rate-of-change` (readonly)
+4. `model-rsme` (readonly)
+5. `model-training-time` (readonly)
 
-* **Ongoing Monitoring:** Maintain continuous engagement with building owners to address concerns related to DSM solution risks. This includes optimizing demand charge management, preserving indoor air quality, enhancing mechanical system efficiency, and ensuring overall building safety. Regular monitoring ensures efficient operation and alignment with energy management goals.
+**BACnet Server Binary Value Points**
+1. `high-load-conditions` (readonly)
+2. `low-load-conditions` (readonly)
 
-These features empower building owners and operators to proactively manage energy consumption, reduce costs, and maintain a safe and efficient building environment.
 
-## Benefits
+## Features
+* **Time Series Forecasting** : In the `time_series_testing` directory, the application currently utilizes Tensorflow Keras-based LSTM machine learning techniques to forecast power meter readings one hour into the future. This helps in identifying potential power spikes or drops. BAS logic for the DSM algorithm can easily use the data which comes through as the BACnet Analog Value `one-hour-future-power`.
+* **Dynamic Model Training** : The system undergoes model training every midnight. This ensures that the model remains up-to-date, adapting to daily variations and subtle changes in the building's electricity usage patterns.
+* **High & Low Load Indicators** : Refer to the `pre_project_analysis` directory. The BACnet Binary Values (BVs) are configured to indicate high and low electrical usage based on the 90th and 30th percentiles, respectively. This statistical approach guarantees accurate identification of peak and low power consumption periods. The assumption is that the control system can utilize this data to determine whether the building can accommodate electric vehicle and/or battery system usage. If the data indicates high peak times (90th percentiles), the `high-load-conditions` BACnet point will switch to True (from 0 to 1 in BACnet). Control system logic can then restrict electrical usage, such as charging or cooling plant operations, during peak summertime cooling applications.
+* **Solar PV** - TODO
+* **Battery State Of Charge (SOC)** - TODO
+* **TODO** - create more BACnet points and algorithm under the hood that could integrate battery system SOC, solar PV output, and buildings power usage to determine if chiller plant should capacity limited and/or battery system/electric car charging can be allowed.
 
-The DSM solution can significantly reduce power consumption, save costs for building owners and operators in demand charges, and enhance the reliability of the electrical grid.
+## Requirements
+- Python 3.10.x or newer
+- BACpypes, Numpy, Tensorflow, and the scikit-learn libraries
 
-## Future Possibilities
+## Installation
+1. **pip install Python libraries**
 
-While this solution addresses current building automation limitations, the field continues to evolve. Future research may explore evolving  the project into something like Home Assistant which is a neat open sourced Linux project.
+```bash
+pip install scikit-learn bacpypes tensorflow
+```
 
-Consider a scenario where algorithms seamlessly facilitate tasks like electric car charging, battery system management, and HVAC power consumption control within building automation systems. Such advancements may become commonplace in buildings of the future.
+2. **Clone repo, cd into into project directory**
+```bash
+git clone https://github.com/bbartling/open-dsm.git
+```
+```bash
+cd open-dsm/simple_bacnet_server
+```
 
-Thank you for being part of an open source demand side management project!
+3. (Optional) **run or test script from Linux terminal**
+```bash
+python bacnet_server.py
+```
 
-## Repository will offer 
 
-1. Python-based analyst scripts for pre-project engineering to create plots of electrical load profiles to study the building's electrical use patterns. See the subdirectory `pre_project_analysis`.
+### Run `bacnet_server.py` as a linux service
 
-2. A comprehensive financial spreadsheet to estimate project costs and ROI, see the subdirectory `financial`.
+1. **Create a Service Unit File**
 
-3. Ability to test algorithms offline on historical data, see the `algorithm_testing` subdirectory.
+   Open a terminal and navigate to the systemd service unit directory:
 
-4. An API solution or app that would run on a small Linux device like a Raspberry Pi or Nano Pi that will ingest data from a power meter setup by the consulting engineer (or the building's main meter if capable) and then communicate via a BACnet and/or REST server a signal that would represent a curtail level.
+   ```bash
+   cd /etc/systemd/system
 
-5. An open-source Linux project inspired by Home Assistant.
+   sudo nano bacnet_server.service
+   ```
 
-**Repo is still in beta or active development!**
+2. **Add the Service Configuration and `EDIT` file as necessary**
 
-**More coming soon for the edge device app!**
+   ```bash
+   [Unit]
+   Description=BACnet Server
+   After=network.target
+
+   [Service]
+   User=your_username
+   WorkingDirectory=/home/your_username/open-dsm/simple_bacnet_server
+   ExecStart=/usr/bin/python3 bacnet_server.py --debug
+   Restart=always
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   Replace `your_username` with your actual username.
+
+2. **Save and Exit the Text Editor**
+   After adding the configuration, save the file and exit the text editor.
+
+3. **Enable and Start the Service**
+   Enable the service to start on boot:
+   ```bash
+   sudo systemctl enable bacnet_server.service
+   ```
+   Then, start the service:
+   ```bash
+   sudo systemctl start bacnet_server.service
+   ```
+4. **Check the Service Status**
+   Check the status of your service to ensure it's running without errors:
+   ```bash
+   sudo systemctl status bacnet_server.service
+   ```
+5. **If errors and need to update script**
+   If you make changes to the script, stop the service to update it:
+   ```bash
+   sudo systemctl stop bacnet_server.service
+   ```
+6. **Start the Service After Updating**
+   After making changes to the script, start the service again:
+   ```bash
+   sudo systemctl start bacnet_server.service
+   ```
+7. **Check the Updated Status**
+   Check the status again to confirm that the updated script is running:
+   ```bash
+   sudo systemctl status bacnet_server.service
+   ```
+
+8. **Tail Linux Service Logs**
+   See debug print statements:
+   ```bash
+   sudo journalctl -u bacnet_server.service -f
+   ```
+
+   * Below is an example that updates at 1-minute intervals. The presence of the value `30286.0` confirms that the control system is successfully writing to the `input-power-meter` point in the BACnet API. If the control system were not writing properly, the default BACnet present value would be `-1.0`.:
+
+   ```bash
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:input_power: 30286.0
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:one_hr_future_pwr: -1.0
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:power_rate_of_change: -1.0
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:high_load_bv: inactive
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:low_load_bv: inactive
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Data Cache Length: 3
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Current Hour: 9
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Current Minute: 28
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Training Started Today: False
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Model Availability: False
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Model training time: 0.00 minutes on None
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:Data Cache last value: 30286.0
+   Sep 30 09:28:00 vm-bbartling2 python3[296422]: DEBUG:__main__:data_cache_len < 65 - RETURN
+   ```
+
+### **Reload Linux service if modifiations are required to the .py file and or Linux service**
+   Reload the systemd configuration. This tells systemd to recognize your changes:
+   ```bash
+   sudo systemctl daemon-reload
+   ```
+
+   Restart your service to apply the changes:
+   ```bash
+   sudo systemctl restart bacnet_server.service
+   ```
+
+   Check the status to ensure it's running as expected:
+   ```bash
+   sudo systemctl status bacnet_server.service
+   ```
+
+   See debug print statements:
+   ```bash
+   sudo journalctl -u bacnet_server.service -f
+   ```
+
+## Schematic
+
+Update to include a network schematic:
+The Building Automation System (BAS) retrieves the current electrical power reading from the building's power meter, using protocols such as Modbus, BACnet, REST, among others. This value, representing the instantaneous electrical power usage (measured in kW, not kWh), is then written to the Data Science BACnet App. Subsequently, the BAS accesses forecasted electrical power data, rate-of-change metrics, and high/low load indicators from BACnet Analog Value and Binary Value objects, respectively. Equipped with this data, the BAS can execute logic to either shed loads or maintain a specific power threshold. This sequence, typically crafted by a consulting engineer, is then brought to fruition by an HVAC controls contractor technician.
+
+```mermaid
+sequenceDiagram
+    participant BAS
+    participant DataScienceBacnetApp
+    participant PowerMeter
+    
+    BAS->>PowerMeter: Read Electrical Power
+
+    PowerMeter-->>BAS: Return Electrical Power Value
+    Note right of PowerMeter: Fetch current power value<br>On some protocol
+    Note right of DataScienceBacnetApp: Writeable BACnet<br>AnalogValue Object<br>Input Power Meter Reading to App
+    BAS->>DataScienceBacnetApp: BACnet Write Electrical Power AnalogValue
+
+    Note right of DataScienceBacnetApp: Value Cached<br>Run Data Science<br>processes...Update<br>BACnet API every 60 seconds
+
+    BAS->>DataScienceBacnetApp: BACnet Read Future Electrical Power AnalogValue
+    Note right of DataScienceBacnetApp: Read Only BACnet<br>AnalogValues Objects<br>To represent future power & ROC
+    DataScienceBacnetApp-->>BAS: Return Future Electrical Power
+
+    BAS->>DataScienceBacnetApp: BACnet Read Electrical Rate-Of-Change AnalogValue
+    DataScienceBacnetApp-->>BAS: Return Electrical Rate-Of-Change
+
+
+    BAS->>DataScienceBacnetApp: BACnet Read High-Load BinaryValue
+    Note right of DataScienceBacnetApp: Read Only BACnet<br>BinaryValue Objects<br>To represent Peak or Valley
+
+    DataScienceBacnetApp-->>BAS: Return High-Load
+
+    BAS->>DataScienceBacnetApp: BACnet Read Low-Load BinaryValue
+    DataScienceBacnetApp-->>BAS: Return High-Load
+```
+
+## Writeups:
+
+* [linkedin story](https://www.linkedin.com/pulse/bacnet-data-science-app-grafana-ben-bartling%3FtrackingId=LLsyrLv8yC6I4n7lqYF42w%253D%253D/?trackingId=LLsyrLv8yC6I4n7lqYF42w%3D%3D)
 
 ## Author
 
