@@ -32,7 +32,7 @@ register_object_type(AnalogValueCmdObject, vendor_id=999)
 INTERVAL = 60.0
 MODEL_TRAIN_HOUR = 0
 USE_CACHE_ON_START = True
-DAYS_TO_CACHE = 365 #modify later for SQLite db
+DAYS_TO_CACHE = 365 # modify later for SQLite db
 LSTM_SEQUENCE_LENGTH = 120
 
 @bacpypes_debugging
@@ -50,6 +50,8 @@ class DoDataScience(RecurringTask):
         input_power,
         one_hr_future_pwr,
         power_rate_of_change,
+        model_rsme,
+        model_training_time,
         high_load_bv,
         low_load_bv,
     ):
@@ -58,12 +60,17 @@ class DoDataScience(RecurringTask):
         self.input_power = input_power
         self.one_hr_future_pwr = one_hr_future_pwr
         self.power_rate_of_change = power_rate_of_change
+        self.model_rsme = model_rsme
+        self.model_training_time = model_training_time
         self.high_load_bv = high_load_bv
         self.low_load_bv = low_load_bv
+        
         self.power_forecast = PowerMeterForecast(
             self.input_power,
             self.one_hr_future_pwr,
             self.power_rate_of_change,
+            self.model_rsme,
+            self.model_training_time,
             self.high_load_bv,
             self.low_load_bv,
         )
@@ -120,6 +127,26 @@ class BacnetServer:
             description="current electrical power rate of change",
         )
         self.app.add_object(self.power_rate_of_change)
+        
+        self.model_rsme = AnalogValueObject(
+            objectIdentifier=("analogValue", 4),
+            objectName="model-rsme",
+            presentValue=-1.0,
+            statusFlags=[0, 0, 0, 0],
+            covIncrement=1.0,
+            description="root mean squared error of models accuracy",
+        )
+        self.app.add_object(self.model_rsme)
+
+        self.model_training_time = AnalogValueObject(
+            objectIdentifier=("analogValue", 5),
+            objectName="model-training-time",
+            presentValue=-1.0,
+            statusFlags=[0, 0, 0, 0],
+            covIncrement=1.0,
+            description="current electrical power rate of change",
+        )
+        self.app.add_object(self.model_training_time)
 
         self.high_load_bv = BinaryValueObject(
             objectIdentifier=("binaryValue", 1),
@@ -144,6 +171,8 @@ class BacnetServer:
             self.input_power,
             self.one_hr_future_pwr,
             self.power_rate_of_change,
+            self.model_rsme,
+            self.model_training_time,
             self.high_load_bv,
             self.low_load_bv,
         )
@@ -159,12 +188,16 @@ class PowerMeterForecast:
         input_power,
         one_hr_future_pwr,
         power_rate_of_change,
+        model_rsme,
+        model_training_time,
         high_load_bv,
         low_load_bv,
     ):
         self.input_power = input_power
         self.one_hr_future_pwr = one_hr_future_pwr
         self.power_rate_of_change = power_rate_of_change
+        self.model_rsme = model_rsme
+        self.model_training_time = model_training_time
         self.high_load_bv = high_load_bv
         self.low_load_bv = low_load_bv
 
@@ -198,6 +231,14 @@ class PowerMeterForecast:
     def set_power_rate_of_change(self, value):
         self.power_rate_of_change.presentValue = Real(value)
         _log.debug("power_rate_of_change: %s", self.power_rate_of_change.presentValue)
+        
+    def set_model_rsme(self, value):
+        self.model_rsme.presentValue = Real(value)
+        _log.debug("model_rsme: %s", self.model_rsme.presentValue)
+        
+    def set_model_training_time(self, value):
+        self.model_training_time.presentValue = Real(value)
+        _log.debug("model_training_time: %s", self.model_training_time.presentValue)
 
     def set_high_load_bv(self, value_str):
         self.high_load_bv.presentValue = value_str
@@ -512,9 +553,13 @@ class PowerMeterForecast:
         self.total_training_time_minutes = (time.time() - start_time) / 60
         self.last_train_time = datetime.now()
         self.rmse = np.sqrt(best_mse)
-
+        
+        # update bacnet API so metrics can be logged on control sys
+        self.set_model_training_time(self.total_training_time_minutes)
+        self.set_model_rsme(self.rmse)
+        
         # Load the best model
-        self.model = tf.keras.models.load_model("best_model.h5")  # Load the best model
+        self.model = tf.keras.models.load_model("best_model.h5")
         _log.debug(f"Model Training Success")
         self.model_is_training = False
 

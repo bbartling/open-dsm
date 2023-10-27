@@ -3,10 +3,8 @@
 This project introduces an innovative synergy between BACnet server capabilities and the formidable machine learning prowess of Keras, a powerful library seamlessly integrated into TensorFlow. Notably, an LSTM (Long Short-Term Memory) model is trained during overnight hours when electricity power levels are typically low. 
 This model becomes a critical asset for predicting electricity consumption values for the upcoming hour.
 
-As the dawn of a new day breaks, the trained LSTM model takes center stage within the BACnet application. 3
-It operates tirelessly, generating predictions for future power consumption every minute. 
-This real-time forecasting capability empowers the system to optimize energy usage, ensure the efficient functioning of building operations, and proactively respond to potential power fluctuations. 
-The culmination of these features contributes to a robust and intelligent BACnet application tailored for modern energy management needs.
+During daytime hours, when control systems may be actively implementing demand-side management strategies to mitigate electrical power spikes, the trained LSTM model is leveraged every minute within the BACnet application. 
+It generates a one-hour ahead forecast of electrical power values, which control systems can access via BACnet. This real-time forecasting capability empowers the system to optimize energy consumption, enhance the efficiency of building operations, and proactively address potential power fluctuations.
 
 ## Features
 * **Time Series Forecasting** : Uses simple LSTM machine learning techniques to forecast the power meter readings 1 hour into the future. This aids in understanding potential power spikes or lapses.
