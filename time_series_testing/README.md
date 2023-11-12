@@ -116,6 +116,6 @@ grid_search = GridSearchCV(
 * The load profile on the 3rd highest power day appeared to be the best.
 * See `analysis.py` for the correlation matrix plot.
 
-![Alt text](/plots/DecisionTreeRegressor_corr_0.9.png)
-![Alt text](/plots/ExtraTreeRegressor_corr_0.9.png)
-![Alt text](/plots/correlation_matrix.png)
+![Alt text](/time_series_testing/DecisionTreeRegressor_corr.png)
+![Alt text](/time_series_testing/ExtraTreeRegressor_corr.png)
+![Alt text](/time_series_testing/correlation_matrix.png)
