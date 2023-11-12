@@ -1,41 +1,121 @@
-# Time Series Forecasting with LSTM
+## Testing Electricity Value Prediction using Tree Regression
 
-This directory contains code for time series forecasting using Long Short-Term Memory (LSTM) networks us `tf.keras` library which can run a type of recurrent neural network (RNN) capable of learning long-term dependencies in data sequences. This project is focused on forecasting future values of a time series given past observations.
- 
-### LSTM
+This script leverages decision tree regression and multi-output regression to forecast electricity consumption values where the idea is to test different models and approaches to embedd inside a BACnet app.
 
-LSTM networks are a type of RNN that include memory cells capable of maintaining information in memory for long periods of time. They are particularly useful for time series forecasting because they can learn from sequences of data and predict future values based on patterns and trends found in the data.
+## Requirements
+- Python (>=3.6)
+- scikit-learn
+- pandas
+- numpy
+- matplotlib
 
+## Installation
+1. **pip install Python libraries**
 
-### Data Preprocessing
+```bash
+pip install scikit-learn pandas numpy matplotlib
 
-The preprocess_data function is an essential step in preparing the time series data for training the LSTM network. This function takes in the raw data, the sequence length (number of past observations to consider), and the prediction length (number of future values to predict) as input and returns the processed data in the form of input sequences (X) and target sequences (y).
-
-```python
-def preprocess_data(data, seq_length, pred_length):
-    X, y = [], []
-    for i in range(seq_length, len(data) - pred_length):
-        X.append(data[i - seq_length:i, 0])
-        y.append(data[i: i + pred_length, 0])
-    return np.array(X), np.array(y)
 ```
 
-In this function, we create sequences of data by sliding a window of length seq_length over the time series data, with each window's last value being used as a starting point for the next window. For each window, we also gather the corresponding future values of length pred_length as the target sequence. This way, we generate pairs of input sequences and their corresponding target sequences, which will be used to train the LSTM network.
+2. **Tested on Windows**
+```bash
+python electricity_prediction.py --corr <correlation_threshold>
+```
+Replace <correlation_threshold> with the desired correlation threshold for feature selection. The script will train a decision tree regression model using the provided data and correlation threshold. After training, the script will make predictions for future electricity consumption values and generate plots for visualization.
 
-### Sequential Fitting
+3. **Command-line Arguments**
+* `--corr`: Correlation threshold for feature selection (default: 0.99).
+* Best results were found with a `.9` value used for `--core` where values of `.99, .9, .8, .7, .6, .5` where all tested. See Feature Selection directly below for more details. 
 
-In the training loop, we utilize a sequential fitting approach, where we repeatedly train the model on the data while adjusting the model's hyperparameters to optimize its performance. This allows us to iteratively improve the model's accuracy in predicting future values of the time series.
+## Feature Selection
+Before training the model, the script performs feature selection based on a correlation threshold. 
+The idea or theory is to remove highly correlated data to hopefully achieve better results. 
+If this is built into a BACnet app this would run under the hood where if highly correlated data was being written
+to the BACnet API this type of code would remove it automatically.
+Here's a breakdown of the feature selection steps:
 
+1. **Compute Correlation Matrix:** The script computes the absolute correlation matrix for the provided data.
 ```python
-for seq_length in sequence_lengths:
+# Compute the absolute correlation matrix
+correlation_matrix = df.corr().abs()
+```
+2. **Select Features to Drop:** It identifies features that have a correlation greater than the specified threshold (CORRELATION) with other features. These features are considered for removal.
+```python
+# Select the upper triangle of the correlation matrix
+upper = correlation_matrix.where(
+    np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool)
+)
+
+features_to_check_for_correlation = df.drop(columns=["main_power_watts"]).columns
+to_drop = [
+    column
+    for column in upper.columns
+    if any(upper[column] > CORRELATION) and column in features_to_check_for_correlation
+]
+```
+3. **Remove Features:** The identified features are then dropped from the DataFrame.
+```python
+# Drop features from the dataframe
+df = df.drop(columns=to_drop, errors="ignore")
 ```
 
-### Best Model Callback
+What you will notice in the console is the columns automatically being dropped for the target col below `main_power_watts` it was found 
+the columns `PV Inverter 2 Watts` and `PV Inverter 3 Watts` were highly correlated and they will automatically be removed from pandas df:
+```bash
+Index(['RTU Cooling Capacity Status', 'main_power_watts',
+       'RTU Outdoor Air Temperature BAS', 'RTU Discharge Air Temperature',
+       'RTU Mixed Air Temperature Local', 'RTU Return Air Temperature',
+       'RTU Duct Static Pressure Local', 'Supply Fan Speed Command',
+       'BOILER System Pump VFD Signal', 'RTU Space Temperature BAS',
+       'BOILER Hot Water Return Temperature',
+       'BOILER Hot Water Supply Temperature', 'PV Inverter 1 Watts',
+       'PV Inverter 2 Watts', 'PV Inverter 3 Watts'],
+      dtype='object')
+DOING CORR:  0.99
+Cols to drop 
+ ['PV Inverter 2 Watts', 'PV Inverter 3 Watts']
+ ```
 
-The best model callback is a technique used to save the model that performs best on the validation data during training. This is achieved using the ModelCheckpoint callback from Keras, which monitors a specified metric (e.g., validation loss) and saves the model that achieves the best performance on that metric.
+## Model Training
+After feature selection, the script proceeds with model training using decision tree regression and multi-output regression. Here's how it's done:
+
+1. **Time Series Split for Validation:** To ensure robust validation, the script employs TimeSeriesSplit with 5 splits to create training and validation sets.
 
 ```python
-best_model_save = ModelCheckpoint('best_model.h5', save_best_only=True, monitor='val_loss', mode='min')
+# Time series split for validation
+tscv = TimeSeriesSplit(n_splits=5)
 ```
-By using this callback, we can ensure that we retain the model with the highest predictive accuracy, which can then be loaded and used for future predictions or further analysis.
+2. **Model Definition:** It wraps the DecisionTreeRegressor with MultiOutputRegressor to handle multiple output predictions.
+```python
+# Wrap DecisionTreeRegressor for multi-output regression
+model = MultiOutputRegressor(DecisionTreeRegressor(random_state=0))
+```
+3. **Hyperparameter Grid for Grid Search:** The script defines a parameter grid for hyperparameter tuning of the decision tree regressor. You may adjust these parameters for testing purposes. The BACnet app will run this same pipeline to select best hyperparameters.
+```python
+# Parameter grid for DecisionTreeRegressor (example parameters, you'll need to define these yourself)
+parameter_grid = {
+    "estimator__max_depth": [None, 10, 20, 30],
+    "estimator__min_samples_split": [2, 5, 10],
+    "estimator__min_samples_leaf": [1, 2, 4],
+}
+```
+4. **Time Series Cross-Validation:** It sets up TimeSeriesSplit for cross-validation, which will be used for grid search.
+```python
+# Time Series Cross Validator
+time_series_cv = TimeSeriesSplit(n_splits=5).split(X)
+```
+5. **Grid Search:** The script performs a grid search with cross-validation to find the best model based on the negative mean squared error.
+```python
+# Grid Search with time series cross-validation
+grid_search = GridSearchCV(
+    model, parameter_grid, cv=time_series_cv, scoring="neg_mean_squared_error"
+)
+```
 
+## Plots 
+* The load profile on the 3rd highest power day appeared to be the best.
+* See `analysis.py` for the correlation matrix plot.
+
+![Alt text](/plots/DecisionTreeRegressor_corr_0.9.png)
+![Alt text](/plots/ExtraTreeRegressor_corr_0.9.png)
+![Alt text](/plots/correlation_matrix.png)
